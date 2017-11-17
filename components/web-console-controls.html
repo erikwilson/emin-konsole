@@ -1,0 +1,46 @@
+<dom-module id="web-console-controls">
+  <template>
+    <style>
+      :host {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+      }
+      div {
+        padding-left: 1em;
+      }
+    </style>
+    <div>
+      <paper-input on-change="maxLinesChanged" label="max number of lines" value="[[maxLines]]"></paper-input>
+    </div>
+    <div>
+      <paper-checkbox checked="{{forceFollow}}">Force Follow</paper-checkbox>
+    </div>
+    <div>
+      <paper-checkbox checked="{{showLineNumbers}}">Line Numbers</paper-checkbox>
+    </div>
+  </template>
+
+  <script>
+    Polymer({
+      is: 'web-console-controls',
+      properties: {
+        maxLines: {
+          type: Number,
+          notify: true,
+        },
+        forceFollow: {
+          type: Boolean,
+          notify: true,
+        },
+        showLineNumbers: {
+          type: Boolean,
+          notify: true,
+        },
+      },
+      maxLinesChanged: function(event) {
+        this.maxLines = event.target.value
+      },
+    })
+  </script>
+</dom-module>

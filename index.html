@@ -1,0 +1,48 @@
+<html>
+<head>
+
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1, user-scalable=yes">
+
+  <title>demo</title>
+  <script src="bower_components/webcomponentsjs/webcomponents-lite.js"></script>
+
+  <link rel="import" href="bower_components/iron-flex-layout/iron-flex-layout-classes.html">
+  <link rel="import" href="bower_components/polymer/polymer-element.html">
+  <link rel="import" href="bower_components/paper-dialog/paper-dialog.html">
+  <link rel="import" href="bower_components/paper-button/paper-button.html">
+  <link rel="import" href="bower_components/paper-checkbox/paper-checkbox.html">
+  <link rel="import" href="bower_components/paper-input/paper-input.html">
+  <link rel="import" href="bower_components/iron-input/iron-input.html">
+
+  <link rel="import" href="components/web-console-repl.html">
+  <link href="style.css" rel="stylesheet">
+
+  <custom-style>
+    <style include="iron-flex iron-flex-alignment"></style>
+  </custom-style>
+</head>
+
+<body class="code">
+  <h1>tic-tac-tonsole</h1>
+  <web-console-repl style="--console-height:30em;"></web-console-repl>
+  <hr />
+  <paper-button raised onclick="dialog.open()">plain dialog</paper-button>
+  <paper-dialog id="dialog">
+    <h2>dialog wow</h2>
+  </paper-dialog>
+
+  <script src="bundle.js"></script>
+
+  <script>
+    console.log('color key:')
+    console.info(' console.info')
+    console.log(' console.log')
+    console.warn(' console.warn')
+    console.error(' console.error')
+
+    // for(var i=0;i<20;i++) console.log(i)
+  </script>
+</body>
+</html>

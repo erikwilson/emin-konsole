@@ -1,0 +1,43 @@
+{
+  "name": "node-ai-tic-tac-toe",
+  "description": "deeplearn tic-tac-toe experiment",
+  "main": "",
+  "authors": [
+    "Erik Wilson"
+  ],
+  "license": "MIT",
+  "homepage": "",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "paper-dialog-scrollable": "2.*.*",
+    "paper-icon-button": "2.*.*",
+    "paper-tooltip": "2.*.*",
+    "paper-toggle-button": "2.*.*",
+    "paper-radio-group": "2.*.*",
+    "paper-radio-button": "2.*.*",
+    "paper-dialog": "2.*.*",
+    "paper-button": "2.*.*",
+    "paper-item": "2.*.*",
+    "paper-dropdown-menu": "2.*.*",
+    "paper-listbox": "2.*.*",
+    "iron-icons": "2.*.*",
+    "paper-slider": "2.*.*",
+    "polymer": "2.*.*",
+    "paper-spinner": "2.*.*",
+    "paper-progress": "2.*.*",
+    "iron-autogrow-textarea": "2.*.*",
+    "iron-list": "2.*.*",
+    "iron-flex-layout": "^2.0.1",
+    "paper-checkbox": "^2.0.1",
+    "paper-input": "^2.0.3",
+    "paper-styles": "^2.0.0",
+    "iron-input": "^2.0.1"
+  }
+}

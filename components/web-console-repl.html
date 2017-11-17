@@ -1,0 +1,60 @@
+<link rel="import" href="web-console-controls.html">
+<link rel="import" href="web-console.html">
+<link rel="import" href="web-console-input.html">
+
+<dom-module id="web-console-repl">
+  <template>
+    <style>
+      :host {
+        --console-height: 20em;
+      }
+
+      .border-grey {
+        border: 1px solid #666;
+      }
+
+      web-console
+      {
+        height: var(--console-height);
+        padding: 0.5em;
+      }
+    </style>
+    <div>
+      <div class="border-grey">
+        <web-console-controls
+          force-follow="{{forceFollow}}"
+          show-line-numbers="{{showLineNumbers}}"
+          max-lines="{{maxLines}}"
+        ></web-console-controls>
+      </div>
+      <div on-tap="onTap" class="border-grey">
+        <web-console
+          force-follow="{{forceFollow}}"
+          show-line-numbers="{{showLineNumbers}}"
+          max-lines="{{maxLines}}"
+        ></web-console>
+      </div>
+      <div class="border-grey">
+        <web-console-input id="input"></web-console-input>
+      </div>
+    </div>
+  </template>
+  <script>
+    Polymer({
+      is: 'web-console-repl',
+
+      properties: {
+        forceFollow: Boolean,
+        showLineNumbers: Boolean,
+        maxLines: {
+          type: Number,
+          value: 1000,
+        }
+      },
+
+      onTap: function() {
+        this.$.input.focus()
+      },
+    })
+  </script>
+</dom-module>

@@ -1,0 +1,116 @@
+<dom-module id="web-console">
+  <template>
+    <style>
+      :host {
+        --overflow: scroll;
+        --display: visible;
+
+        overflow: var(--overflow);
+
+        font-family: 'Roboto Mono', 'Consolas', 'Menlo', monospace;
+        -webkit-font-smoothing: antialiased;
+
+        background-color: #222;
+        color: gray;
+        display: flex;
+        flex-direction: column-reverse;
+      }
+
+      .info  { color: cyan; }
+      .log   { color: lightgray; }
+      .warn  { color: yellow; }
+      .error { color: orangered; }
+      .input { color: lightgreen; }
+
+      .line  { white-space: pre-wrap; }
+      .line-numbers {
+        display: var(--display);
+      }
+
+    </style>
+    <div>
+      <template is="dom-repeat" items="[[items]]">
+        <div class="line"><span class="line-numbers">[[item.n]]: </span><span class$="[[item.type]]">[[item.data]]</span></div>
+      </template>
+    </div>
+  </template>
+
+  <script>
+    Polymer({
+      is:'web-console',
+      properties: {
+        items: {
+          type: Array,
+          value: [],
+        },
+        con: {
+          type: Object,
+          value: console,
+        },
+        functions: Array,
+        noRepeat: Boolean,
+        forceFollow: {
+          type: Boolean,
+          observer: 'forceFollowChanged',
+        },
+        showLineNumbers: {
+          type: Boolean,
+          observer: 'showLineNumbersChanged',
+        },
+        maxLines: {
+          type: Number,
+          observer: 'maxLinesChanged',
+        },
+      },
+
+      ready: function() {
+        this.n = 0
+        this.wrapConsole(this.con,this.functions)
+        this.forceFollowChanged(this.forceFollow)
+        this.showLineNumbersChanged(this.showLineNumbers)
+      },
+
+      addItem: function(item) {
+        item.n = this.n++
+        this.push('items', item)
+
+        const listFull = this.items.length>this.maxLines
+        const bottomDiff = this.scrollHeight-this.scrollTop-this.offsetHeight
+
+        if (listFull) this.shift('items')
+        if (!this.forceFollow && (listFull || bottomDiff > 10)) return
+
+        Polymer.RenderStatus.afterNextRender(this, () => {
+          this.scrollTop = this.scrollHeight
+        })
+      },
+
+      wrapConsole: function(con, functions=["info","log","warn","error"]) {
+        const wrap = (type, func) => (function() {
+          if (!this.noRepeat) func.apply(null,arguments)
+          const data = Array.prototype.slice.call(arguments).join(' ')
+          this.addItem({type,data})
+        }).bind(this)
+        for (let name of functions) con[name] = wrap(name, con[name])
+      },
+
+      forceFollowChanged: function(forceFollow) {
+        if (forceFollow) {
+          this.scrollLeft = 0
+          this.scrollTop = this.scrollHeight
+        }
+        const overflow = (forceFollow ? 'hidden' : 'scroll')
+        this.updateStyles({'--overflow':overflow})
+      },
+
+      maxLinesChanged: function(maxLines) {
+        while (this.items.length>maxLines) this.shift('items')
+      },
+
+      showLineNumbersChanged: function(showLineNumbers) {
+        const display = (showLineNumbers ? 'visible' : 'none')
+        this.updateStyles({'--display':display})
+      },
+    })
+  </script>
+</dom-module>

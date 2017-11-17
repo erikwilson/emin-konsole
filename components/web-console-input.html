@@ -1,0 +1,49 @@
+<dom-module id="web-console-input">
+  <template>
+    <style>
+      :host {
+        display: flex;
+        flex-direction: row;
+        padding: 0.5em;
+        font-size: 1em;
+        font-family: 'Roboto Mono', 'Consolas', 'Menlo', monospace;
+        -webkit-font-smoothing: antialiased;
+        background: #222;
+        color: #eee;
+      }
+      span {
+        color: cyan;
+      }
+      input {
+        flex: 1;
+        outline: none;
+        border: none;
+        font: inherit;
+        background: inherit;
+        color: inherit;
+      }
+    </style>
+    <span>&gt;&nbsp;</span><input on-change="inputChanged" id="input" type="text"></input>
+  </template>
+
+  <script>
+    Polymer({
+      is: 'web-console-input',
+
+      inputChanged: function(event){
+        const cmd = event.target.value
+        this.$.input.value=""
+        console.info('>',cmd)
+        try {
+          console.log(JSON.stringify(eval(cmd)))
+        } catch (error) {
+          console.error(error)
+        }
+      },
+
+      focus: function() {
+        this.$.input.focus()
+      },
+    })
+  </script>
+</dom-module>
