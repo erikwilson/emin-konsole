@@ -3,12 +3,15 @@
     <style>
       :host {
         --overflow: scroll;
-        --display: visible;
+        --line-number-display: visible;
+        --scrollbar: 0px;
 
+        overflow-y: scroll;
         overflow: var(--overflow);
 
         font-family: 'Roboto Mono', 'Consolas', 'Menlo', monospace;
         -webkit-font-smoothing: antialiased;
+        font-size: 1em;
 
         background-color: #222;
         color: gray;
@@ -23,10 +26,13 @@
       .input { color: lightgreen; }
 
       .line  { white-space: pre-wrap; }
-      .line-numbers {
-        display: var(--display);
-      }
 
+      .line-numbers {
+        display: var(--line-number-display);
+      }
+      .line-numbers {
+        display: var(--line-number-display);
+      }
     </style>
     <div>
       <template is="dom-repeat" items="[[items]]">
@@ -61,43 +67,72 @@
           type: Number,
           observer: 'maxLinesChanged',
         },
+        lineNumber: {
+          type: Number,
+          value: 0,
+          notify: true,
+        },
       },
 
       ready: function() {
-        this.n = 0
         this.wrapConsole(this.con,this.functions)
         this.forceFollowChanged(this.forceFollow)
         this.showLineNumbersChanged(this.showLineNumbers)
       },
 
       addItem: function(item) {
-        item.n = this.n++
+        item.n = this.lineNumber
         this.push('items', item)
+        this.set('lineNumber',this.lineNumber+1)
 
         const listFull = this.items.length>this.maxLines
         const bottomDiff = this.scrollHeight-this.scrollTop-this.offsetHeight
-
         if (listFull) this.shift('items')
-        if (!this.forceFollow && (listFull || bottomDiff > 10)) return
+        if (!this.forceFollow && (listFull || bottomDiff > 0)) { return }
 
         Polymer.RenderStatus.afterNextRender(this, () => {
-          this.scrollTop = this.scrollHeight
+          this.scrollTop = this.scrollHeight-this.offsetHeight
+
+          // fix the glitchy scrolling ¯\_(ツ)_/¯
+          this.updateStyles({'--overflow':'hidden'})
+          if (this.forceFollow) return;
+          Polymer.RenderStatus.afterNextRender(this, () => {
+            this.updateStyles({'--overflow':'scroll'})
+          })
         })
       },
 
       wrapConsole: function(con, functions=["info","log","warn","error"]) {
         const wrap = (type, func) => (function() {
           if (!this.noRepeat) func.apply(null,arguments)
-          const data = Array.prototype.slice.call(arguments).join(' ')
+          let data = []
+          for (let arg of arguments) {
+            if (arg === undefined) arg = 'undefined'
+            let value = arg
+            try {
+              if (arg.toString) value = arg.toString()
+              if (arg instanceof Object && !(arg instanceof Error)) {
+                const stringified = JSON.stringify(arg,null,2)
+                if (stringified) value = stringified
+              }
+            } catch(err) {}
+            data.push(value)
+          }
+          // const data = Array.prototype.slice.call(arguments).join(' ')
+          data = data.join(' ')
           this.addItem({type,data})
         }).bind(this)
-        for (let name of functions) con[name] = wrap(name, con[name])
+        const ocon = this.ocon = {}
+        for (let name of functions) {
+          ocon[name] = con[name]
+          con[name] = wrap(name, con[name])
+        }
       },
 
       forceFollowChanged: function(forceFollow) {
         if (forceFollow) {
           this.scrollLeft = 0
-          this.scrollTop = this.scrollHeight
+          this.scrollTop = this.scrollHeight-this.offsetHeight
         }
         const overflow = (forceFollow ? 'hidden' : 'scroll')
         this.updateStyles({'--overflow':overflow})
@@ -109,7 +144,7 @@
 
       showLineNumbersChanged: function(showLineNumbers) {
         const display = (showLineNumbers ? 'visible' : 'none')
-        this.updateStyles({'--display':display})
+        this.updateStyles({'--line-number-display':display})
       },
     })
   </script>

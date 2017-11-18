@@ -38,6 +38,7 @@
     "paper-checkbox": "^2.0.1",
     "paper-input": "^2.0.3",
     "paper-styles": "^2.0.0",
-    "iron-input": "^2.0.1"
+    "iron-input": "^2.0.1",
+    "app-storage": "^2.0.2"
   }
 }

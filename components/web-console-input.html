@@ -1,41 +1,108 @@
-<dom-module id="web-console-input">
+<dom-module id='web-console-input'>
   <template>
     <style>
       :host {
+        --line-number-display: visible;
+
         display: flex;
         flex-direction: row;
-        padding: 0.5em;
         font-size: 1em;
         font-family: 'Roboto Mono', 'Consolas', 'Menlo', monospace;
         -webkit-font-smoothing: antialiased;
         background: #222;
         color: #eee;
       }
+
       span {
         color: cyan;
       }
+
       input {
+        padding: 0;
+        margin: 0;
         flex: 1;
         outline: none;
         border: none;
         font: inherit;
         background: inherit;
         color: inherit;
+        caret-color: cyan;
       }
+
+      .line-numbers {
+        display: var(--line-number-display);
+      }
+
     </style>
-    <span>&gt;&nbsp;</span><input on-change="inputChanged" id="input" type="text"></input>
+    <app-localstorage-document key="history" data="{{history}}"></app-localstorage-document>
+    <span><span class='line-numbers'>[[lineNumber]]: </span>&gt;&nbsp;</span><input id='input' type='text'></input>
   </template>
 
   <script>
     Polymer({
       is: 'web-console-input',
 
-      inputChanged: function(event){
-        const cmd = event.target.value
-        this.$.input.value=""
+      properties: {
+        showLineNumbers: {
+          type: Boolean,
+          observer: 'showLineNumbersChanged',
+        },
+        lineNumber: {
+          type: Number,
+        },
+        history: {
+          type: Array,
+          value: [],
+          notify: true,
+        },
+        maxHistory: {
+          type: Number,
+          value: 1000,
+        },
+      },
+
+      ready: function() {
+        const input = this.$.input
+
+        input.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter') return this.inputChanged(input.value)
+          if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
+          this.commandHistory(event.key)
+        })
+      },
+
+      commandHistory: function(key) {
+        const input = this.$.input
+
+        if (event.key === 'ArrowUp' && this.historySelect === undefined)
+          this.historySelect = this.history.length
+        if (event.key === 'ArrowUp')
+          this.historySelect--
+        if (event.key === 'ArrowDown' && this.historySelect !== undefined)
+          this.historySelect++
+
+        if (this.historySelect < 0)
+          this.historySelect = 0
+
+        if (this.historySelect >= this.history.length) {
+          this.historySelect = undefined
+          input.value = ''
+        }
+
+        if (this.historySelect !== undefined) {
+          input.value = this.history[this.historySelect]
+          setTimeout(()=> input.selectionStart = input.selectionEnd = 10000, 0)
+        }
+      },
+
+      inputChanged: function(cmd){
+        this.push('history',cmd)
+        this.historySelect = undefined
+        this.$.input.value = ''
         console.info('>',cmd)
         try {
-          console.log(JSON.stringify(eval(cmd)))
+          var result = eval(cmd)
+          console.info('=',result)
         } catch (error) {
           console.error(error)
         }
@@ -44,6 +111,12 @@
       focus: function() {
         this.$.input.focus()
       },
+
+      showLineNumbersChanged: function(showLineNumbers) {
+        const display = (showLineNumbers ? 'visible' : 'none')
+        this.updateStyles({'--line-number-display':display})
+      },
+
     })
   </script>
 </dom-module>

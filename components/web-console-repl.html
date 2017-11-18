@@ -6,37 +6,56 @@
   <template>
     <style>
       :host {
-        --console-height: 20em;
+        --min-height: 22em;
+        --min-width: 22em;
+        min-height: var(--min-height);
+        min-width: var(--min-width);
+      }
+
+      .flex, :host {
+        flex: 1;
+      }
+
+      .layout-vertical, :host {
+        display: flex;
+        flex-direction: column;
       }
 
       .border-grey {
         border: 1px solid #666;
       }
 
-      web-console
-      {
-        height: var(--console-height);
-        padding: 0.5em;
+      .repl {
+        background: #222;
       }
+
+      web-console, web-console-input
+      {
+        padding-left: 0.5em;
+      }
+      web-console-input {
+        padding-bottom: 0.5em;
+      }
+
     </style>
-    <div>
-      <div class="border-grey">
-        <web-console-controls
-          force-follow="{{forceFollow}}"
-          show-line-numbers="{{showLineNumbers}}"
-          max-lines="{{maxLines}}"
-        ></web-console-controls>
-      </div>
-      <div on-tap="onTap" class="border-grey">
-        <web-console
-          force-follow="{{forceFollow}}"
-          show-line-numbers="{{showLineNumbers}}"
-          max-lines="{{maxLines}}"
-        ></web-console>
-      </div>
-      <div class="border-grey">
-        <web-console-input id="input"></web-console-input>
-      </div>
+    <div class="border-grey">
+      <web-console-controls
+        force-follow="{{forceFollow}}"
+        show-line-numbers="{{showLineNumbers}}"
+        max-lines="{{maxLines}}"
+      ></web-console-controls>
+    </div>
+    <div on-tap="onTap" class="flex layout-vertical repl">
+      <web-console class="flex"
+        force-follow="{{forceFollow}}"
+        show-line-numbers="{{showLineNumbers}}"
+        max-lines="{{maxLines}}"
+        line-number="{{lineNumber}}"
+      ></web-console>
+      <web-console-input id="input"
+        show-line-numbers="{{showLineNumbers}}"
+        line-number="{{lineNumber}}"
+      ></web-console-input>
     </div>
   </template>
   <script>
@@ -45,11 +64,15 @@
 
       properties: {
         forceFollow: Boolean,
-        showLineNumbers: Boolean,
+        showLineNumbers: {
+          type: Boolean,
+          value: true,
+        },
         maxLines: {
           type: Number,
           value: 1000,
-        }
+        },
+        lineNumber: Number,
       },
 
       onTap: function() {
