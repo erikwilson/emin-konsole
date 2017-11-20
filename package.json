@@ -4,9 +4,7 @@
   "description": "",
   "main": "lib.js",
   "scripts": {
-    "start": "./electron.js",
-    "start-test": "npm run build:live",
-    "build:live": "nodemon --exec ./node_modules/.bin/ts-node -- ./test/test.ts",
+    "start": "./scripts/live.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "prep": "npm install && bower install"
   },
@@ -28,6 +26,7 @@
     "@types/node": "^8.0.51",
     "bower": "^1.8.2",
     "browserify": "^14.5.0",
+    "browserify-livereload": "^1.0.10",
     "cross-spawn": "^5.1.0",
     "electron": "^1.7.9",
     "http-server": "^0.10.0",

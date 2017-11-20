@@ -33,12 +33,10 @@
     "paper-spinner": "2.*.*",
     "paper-progress": "2.*.*",
     "iron-autogrow-textarea": "2.*.*",
-    "iron-list": "2.*.*",
-    "iron-flex-layout": "^2.0.1",
-    "paper-checkbox": "^2.0.1",
-    "paper-input": "^2.0.3",
-    "paper-styles": "^2.0.0",
-    "iron-input": "^2.0.1",
-    "app-storage": "^2.0.2"
+    "iron-flex-layout": "2.*.*",
+    "paper-checkbox": "2.*.*",
+    "paper-input": "2.*.*",
+    "paper-styles": "2.*.*",
+    "app-storage": "2.*.*"
   }
 }

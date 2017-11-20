@@ -17,7 +17,7 @@ const game = new Game({rank:4,players})
 
 const replay = () => {
   game.reset()
-  setTimeout(()=>game.play(replay),500)
+  setTimeout(()=>game.play(replay),200)
 }
 
 module.exports = replay

@@ -6,10 +6,13 @@
   <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1, user-scalable=yes">
 
   <title>demo</title>
-  <script src="bower_components/webcomponentsjs/webcomponents-lite.js"></script>
 
-  <link rel="import" href="bower_components/iron-flex-layout/iron-flex-layout-classes.html">
+  <script src="bower_components/webcomponentsjs/webcomponents-lite.js"></script>
+  <link rel="import" href="bower_components/polymer/polymer.html">
+  <script>Polymer.setPassiveTouchGestures(true)</script>
+
   <link rel="import" href="bower_components/polymer/polymer-element.html">
+  <link rel="import" href="bower_components/iron-flex-layout/iron-flex-layout-classes.html">
   <link rel="import" href="bower_components/paper-dialog/paper-dialog.html">
   <link rel="import" href="bower_components/paper-button/paper-button.html">
   <link rel="import" href="bower_components/paper-checkbox/paper-checkbox.html">
@@ -23,8 +26,9 @@
   <custom-style>
     <style include="iron-flex iron-flex-alignment"></style>
   </custom-style>
+ </head>
 </head>
-<!--  -->
+
 <body class="code layout vertical">
   <paper-dialog id="dialog">
     <h2>dialog wow</h2>

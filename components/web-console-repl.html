@@ -73,10 +73,15 @@
           value: 1000,
         },
         lineNumber: Number,
+        lastClick: {
+          value: 0,
+        },
       },
 
       onTap: function() {
-        this.$.input.focus()
+        const now = Date.now()
+        if (now-this.lastClick > 1000) this.$.input.focus()
+        this.lastClick = now
       },
     })
   </script>

@@ -52,12 +52,10 @@
         },
         history: {
           type: Array,
-          value: [],
-          notify: true,
         },
         maxHistory: {
           type: Number,
-          value: 1000,
+          value: 100,
         },
       },
 
@@ -72,6 +70,7 @@
       },
 
       commandHistory: function(key) {
+        if (!this.history) return
         const input = this.$.input
 
         if (event.key === 'ArrowUp' && this.historySelect === undefined)
@@ -96,10 +95,15 @@
       },
 
       inputChanged: function(cmd){
-        this.push('history',cmd)
-        this.historySelect = undefined
         this.$.input.value = ''
         console.info('>',cmd)
+        if (!cmd.trim()) return
+
+        this.historySelect = undefined
+        if (!this.history) this.history = []
+        this.push('history',cmd)
+        while (this.history.length>this.maxHistory) this.shift('history')
+
         try {
           var result = eval(cmd)
           console.info('=',result)

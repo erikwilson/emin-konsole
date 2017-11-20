@@ -103,7 +103,16 @@
       },
 
       wrapConsole: function(con, functions=["info","log","warn","error"]) {
-        const wrap = (type, func) => (function() {
+        const ocon = this.ocon = {}
+        for (let name of functions) {
+          ocon[name] = con[name]
+          con[name] = this.wrapFunction(name, con[name])
+        }
+      },
+
+      wrapFunction: function(name, func) {
+        return (function() {
+          let type = name
           if (!this.noRepeat) func.apply(null,arguments)
           let data = []
           for (let arg of arguments) {
@@ -115,18 +124,15 @@
                 const stringified = JSON.stringify(arg,null,2)
                 if (stringified) value = stringified
               }
-            } catch(err) {}
+            } catch(error) {
+              value = error.toString()
+              type = 'error'
+            }
             data.push(value)
           }
-          // const data = Array.prototype.slice.call(arguments).join(' ')
           data = data.join(' ')
           this.addItem({type,data})
         }).bind(this)
-        const ocon = this.ocon = {}
-        for (let name of functions) {
-          ocon[name] = con[name]
-          con[name] = wrap(name, con[name])
-        }
       },
 
       forceFollowChanged: function(forceFollow) {
