@@ -33,10 +33,12 @@ function bundle() {
 
 bundle()
 
-const cmd = path.join(__dirname, 'electron.js')
-console.log('launching electron')
-const child = spawn(cmd, {detached: false, stdio: 'inherit'})
-child.on('close', () => {
-  console.log('electron is done')
-  process.exit()
-})
+setTimeout(() => {
+  console.log('launching electron')
+  const cmd = path.join(__dirname, 'electron.js')
+  const child = spawn(cmd, {detached: false, stdio: 'inherit'})
+  child.on('close', () => {
+    console.log('electron is done')
+    process.exit()
+  })
+},500)
