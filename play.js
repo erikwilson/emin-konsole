@@ -1,6 +1,7 @@
 const Game = require('./tic-tac-toe/game')
 const randomPlayer = require('./tic-tac-toe/players/random')
 // const humanPlayer  = require('./tic-tac-toe/players/human')
+require('./app')
 
 const players = [
   {

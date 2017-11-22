@@ -1,11 +1,14 @@
 
 
-const {Array1D, Array2D, CostReduction, FeedEntry, Graph, InCPUMemoryShuffledInputProviderBuilder, NDArrayMathGPU, Scalar, Session, SGDOptimizer} = require('deeplearn');
+const {Array1D, Array2D, Array3D, Array4D, CostReduction, FeedEntry, Graph, InCPUMemoryShuffledInputProviderBuilder, NDArrayMathGPU, Scalar, Session, SGDOptimizer} = require('deeplearn')
+const GraphSerializer = require('./helpers/graph-serializer-test')
+const _ = require('lodash')
 
-const PLAY = require('./play')
+return
 
-console.log(PLAY)
-PLAY()
+function createFullyConnectedLayer(graph, inputLayer, layerIndex, sizeOfThisLayer) {
+  return graph.layers.dense(`fully_connected_${layerIndex}`, inputLayer, sizeOfThisLayer);
+}
 
 // This file parallels (some of) the code in the introduction tutorial.
 /**
@@ -46,20 +49,65 @@ async function app() {
     // Variables are containers that hold a value that can be updated from
     // training.
     // Here we initialize the multiplier variable randomly.
-    const multiplier = g.variable('multiplier', Array2D.randNormal([1, 3]));
-
+    // const multiplier = g.variable('multiplier', Array2D.randNormal([1, 3]));
+    //
     // Top level graph methods take Tensors and return Tensors.
-    const outputTensor = g.matmul(multiplier, inputTensor);
-    const costTensor = g.meanSquaredCost(labelTensor, outputTensor);
+    // const outputTensor = g.matmul(multiplier, inputTensor);
 
+    let fullyConnectedLayer =
+      createFullyConnectedLayer(g, inputTensor, 0, 3);
+    // fullyConnectedLayer =
+    //   createFullyConnectedLayer(g, fullyConnectedLayer, 1, 128)
+    // fullyConnectedLayer =
+    //   createFullyConnectedLayer(g, fullyConnectedLayer, 2, 128)
+    const outputTensor =
+      createFullyConnectedLayer(g, fullyConnectedLayer, 3, 1)
+
+    const costTensor = g.meanSquaredCost(labelTensor, outputTensor);
+    const r1 = g.argmax(costTensor)
+    const r2 = g.argmaxEquals(r1,labelTensor)
+    const d3 = g.placeholder('3d', [2,2,3])
+    const d32 = g.concat3d(d3,d3,2)
+    const c = g.constant([1,2,3,4])
+    const d2 = g.placeholder('2d', [2,2])
+    const x = g.placeholder('x',[3])
+
+    const inputDepth = 1
+    const inputShape2 = [2, 2, inputDepth]
+    const outputDepth = 1
+    const fSize = 1
+    const pad = 0
+    const stride = 1
+
+    const x1 = Array3D.new(inputShape2, [1, 2, 3, 4])
+    const w1 = Array4D.new([fSize, fSize, inputDepth, outputDepth], [2])
+    const bias1 = Array1D.new([-1])
+
+    const conv2d = g.conv2d(x1, w1, bias1, stride, pad)
+    g.divide(labelTensor,labelTensor)
+    g.exp(labelTensor)
+    g.fusedLinearCombination(x1,x1,costTensor,costTensor)
+    g.log(x1)
+    g.maxPool(x1, 1, 1)
+    g.multiply(x1, x1)
+    g.reduceSum(x1)
+    g.relu(x1)
+    const r3 = g.reshape(x1,[4])
+    g.sigmoid(x1)
+    g.softmax(r3)
+    g.softmaxCrossEntropyCost(x1,x1)
+    g.square(x1)
+    g.subtract(x1,x1)
+    g.tanh(x1)
     // Tensors, like NDArrays, have a shape attribute.
-    console.log(outputTensor.shape);
+    console.log(outputTensor.shape)
+    console.log('graph',g.getNodes()[2].data.getValues())
 
     /**
      * 'Session and FeedEntry' section of the tutorial.
      */
 
-    const learningRate = .00001;
+    const learningRate = .000001;
     const batchSize = 3;
     const math = new NDArrayMathGPU();
 
@@ -86,8 +134,11 @@ async function app() {
       {tensor: labelTensor, data: labelProvider}
     ];
 
-    const NUM_BATCHES = 10;
-    for (let i = 0; i < NUM_BATCHES; i++) {
+    var done = false
+    var lastCostVal = undefined
+    var i = 0
+
+    while (!done) {
       // Wrap session.train in a scope so the cost gets cleaned up
       // automatically.
       await math.scope(async () => {
@@ -96,11 +147,15 @@ async function app() {
         const cost = session.train(
             costTensor, feedEntries, batchSize, optimizer, CostReduction.MEAN);
 
-        console.log(`last average cost (${i}): ${await cost.val()}`);
+        const costVal = await cost.val()
+        // done = lastCostVal == costVal
+        done = i > 10
+        lastCostVal = costVal
+        console.log(`last average cost (${i++}): ${costVal}`);
       });
     }
 
-    const testInput = Array1D.new([0.1, 0.2, 0.3]);
+    const testInput = Array1D.new([.1,.2,.3]);
 
     // session.eval can take NDArrays as input data.
     const testFeedEntries =
@@ -111,6 +166,19 @@ async function app() {
     console.log('---inference output---');
     console.log(`shape: ${testOutput.shape}`);
     console.log(`value: ${await testOutput.val(0)}`);
+    console.log('nodes:', g.getNodes())
+    const serial = GraphSerializer.graphToJson(g)
+    console.log('serializer:',serial)
+    const gData = GraphSerializer.jsonToGraph(serial)
+    const {graph:newG, placeholders, variables, tensors} = gData
+    console.log('newG nodes:', newG.getNodes())
+    console.log(gData)
+    const newSerial = GraphSerializer.graphToJson(newG, true)
+    console.log('super serial:', _.isEqual(serial,newSerial))
+    for (let i in newSerial) {
+      const eq = _.isEqual(serial[i],newSerial[i])
+      console.log(i, eq, serial[i],newSerial[i])
+    }
   }
 }
 

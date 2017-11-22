@@ -25,9 +25,11 @@ b.plugin(livereload, {
 })
 
 b.on('update', bundle)
+b.on('error', console.log)
+b.on('syntax', console.log)
 
 function bundle() {
-  b.bundle().pipe(fs.createWriteStream(outfile))
+  b.bundle().on('error',console.error).pipe(fs.createWriteStream(outfile))
   console.log(`wrote ${outfile}`)
 }
 
