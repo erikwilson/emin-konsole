@@ -22,12 +22,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-const DeepLearn = require('deeplearn')
-const {Scalar, Graph} = DeepLearn
+const { Scalar, Graph } = require('deeplearn')
 
 //------------------------------------------------------------------------------
 
-function graphToJson( graph, idStartsAtZero=true) {
+function graphToJson( graph, idStartsAtZero=true ) {
 
   if (!graph) return
   const graphNodes = graph.getNodes()
@@ -77,7 +76,7 @@ function graphToJson( graph, idStartsAtZero=true) {
 
 //------------------------------------------------------------------------------
 
-function jsonToGraph(nodes) {
+function jsonToGraph( nodes ) {
 
   const graph = new Graph()
   const placeholders = {}

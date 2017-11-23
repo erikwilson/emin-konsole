@@ -126,10 +126,6 @@ async function train({ graph, cost, input, label, math }, rounds=1) {
     {tensor: label, data: labelProvider}
   ]
 
-  var done = false
-  var lastCostVal = undefined
-  var i = 0
-
   for (let i=0; i<rounds; i++) {
     await math.scope(async () => {
       const costVal = await session.train(cost, feedEntries, batchSize, optimizer, CostReduction.MEAN).val()
@@ -146,69 +142,90 @@ function runNetwork({ graph, input, output, math }, values) {
 }
 
 async function test() {
+  const math = new NDArrayMathGPU()
+
   console.log('checking all nodes serialization:')
   const gAll = createAllGraph()
   checkReserialze(gAll)
-  const math = new NDArrayMathGPU()
-  const trainer = createTrainingGraph(math)
-  const trainerSerial = GraphSerializer.graphToJson(trainer.graph)
-  await train(trainer)
-  const val = await runNetwork(trainer,[.1,.2,.3]).val(0)
 
-  const trainerClone = GraphSerializer.jsonToGraph(trainerSerial)
-  const newTrainer = {
-    graph: trainerClone.graph,
-    cost: trainerClone.variables.cost,
-    input: trainerClone.placeholders.input,
-    output: trainerClone.variables.output,
-    label: trainerClone.placeholders.label,
+  const originalNet = createTrainingGraph(math)
+  const originalSerial = GraphSerializer.graphToJson(originalNet.graph)
+  await train(originalNet)
+  const firstOriginalVal = await runNetwork(originalNet,[.1,.2,.3]).val(0)
+
+  let deserial = undefined
+
+  deserial = GraphSerializer.jsonToGraph(originalSerial)
+  const cloneNet = {
+    graph: deserial.graph,
+    cost: deserial.variables.cost,
+    input: deserial.placeholders.input,
+    output: deserial.variables.output,
+    label: deserial.placeholders.label,
     math,
   }
-  await train(newTrainer)
-  const newVal = await runNetwork(newTrainer,[.1,.2,.3]).val(0)
-  const firstDiff = val-newVal
+  await train(cloneNet)
+  const firstCloneVal = await runNetwork(cloneNet,[.1,.2,.3]).val(0)
+  const firstDiff = firstCloneVal - firstOriginalVal
   console.log('first training diff', firstDiff, Math.abs(firstDiff)<0.0000001?'good':'bad')
 
   console.log('training original for 99 rounds')
   let startTime = Date.now()
-  await train(trainer,99)
+  await train(originalNet,99)
   let finishTime = Date.now()
   let originalDiffTime = finishTime - startTime
   console.log(originalDiffTime, 'ms')
 
   console.log('training clone for 99 rounds')
   startTime = Date.now()
-  await train(newTrainer,99)
+  await train(cloneNet,99)
   finishTime = Date.now()
   let newDiffTime = finishTime - startTime
   let timeDiff = newDiffTime-originalDiffTime
   console.log(newDiffTime, 'ms')
   console.log('time diff',timeDiff,'ms', timeDiff<1000 ? 'good' : 'bad')
 
-  const lastVal = await runNetwork(trainer,[.1,.2,.3]).val(0)
-  const lastNewVal = await runNetwork(newTrainer,[.1,.2,.3]).val(0)
-  const lastDiff = lastNewVal-lastVal
+  const originalVal = await runNetwork(originalNet,[.1,.2,.3]).val(0)
+  const cloneVal = await runNetwork(cloneNet,[.1,.2,.3]).val(0)
+  const lastDiff = cloneVal-originalVal
   console.log('trainer diff',lastDiff, Math.abs(lastDiff)<0.0000001 ? 'good' : 'bad')
 
-  const valDiff = .4 - lastNewVal
-  console.log('expected value diff (.4)', valDiff, Math.abs(valDiff)<0.1 ? 'good' : 'bad')
+  const valDiff = .4 - cloneVal
+  console.log('expected value diff (.4)', valDiff, Math.abs(valDiff)<0.01 ? 'good' : 'bad')
 
   console.log('cloning trained clone')
-  const trainerSerial2 = GraphSerializer.graphToJson(newTrainer.graph)
-  const trainerClone2 = GraphSerializer.jsonToGraph(trainerSerial2)
-  const trainedClone = {
-    graph: trainerClone2.graph,
-    cost: trainerClone2.variables.cost,
-    input: trainerClone2.placeholders.input,
-    output: trainerClone2.variables.output,
-    label: trainerClone2.placeholders.label,
+  const cloneSerial = GraphSerializer.graphToJson(cloneNet.graph)
+  deserial = GraphSerializer.jsonToGraph(cloneSerial)
+  const cloneNet2 = {
+    graph: deserial.graph,
+    cost: deserial.variables.cost,
+    input: deserial.placeholders.input,
+    output: deserial.variables.output,
+    label: deserial.placeholders.label,
     math,
   }
 
-  const lastNewClonedVal = await runNetwork(trainedClone,[.1,.2,.3]).val(0)
-  const trainedDiff = lastNewClonedVal - lastNewVal
-  console.log('clone trained difference',trainedDiff,Math.abs(trainedDiff)<0.0000001?'good':'bad')
-  console.log('stringified network length:',JSON.stringify(trainerSerial2).length)
+  const cloneVal2 = await runNetwork(cloneNet2,[.1,.2,.3]).val(0)
+  const clonedDiff = cloneVal2 - cloneVal
+  const cloneSerial2 = GraphSerializer.graphToJson(cloneNet2.graph)
+  console.log('trained clone difference',clonedDiff,Math.abs(clonedDiff)<0.0000001?'good':'bad')
+  console.log('stringified network length:',JSON.stringify(cloneSerial2).length)
+  console.log('json equal',_.isEqual(cloneSerial2, cloneSerial))
+
+  console.log('serializing a graph that uses a variable from another graph:')
+  const g1 = new Graph()
+  const crossgraph = g1.placeholder('wow',[1])
+  const g2 = new Graph()
+  g2.multiply(crossgraph,crossgraph)
+  const invalid = GraphSerializer.graphToJson(g2)
+  console.log(JSON.stringify(invalid))
+  console.log('unserializing invalid graph:')
+  try {
+    GraphSerializer.jsonToGraph(invalid)
+    console.log('serialized invalid graph?!')
+  } catch (error) {
+    console.error(error)
+  }
 }
 
 test()
