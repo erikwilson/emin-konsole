@@ -3,11 +3,3 @@ body {
   -webkit-font-smoothing: antialiased;
   background-color: #f6f6f6;
 }
-
-.border-red {
-  border: 1px solid red;
-}
-
-.fixed-height {
-  height: 40em;
-}
