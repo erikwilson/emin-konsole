@@ -1,15 +1,16 @@
 {
-  "name": "ai-tic-tac-toe",
+  "name": "emin-konsole",
   "version": "0.0.0",
   "description": "",
-  "main": "lib.js",
+  "main": "./mnk/index.js",
   "scripts": {
     "start": "./scripts/live.js",
+    "headless": "./scripts/headless.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "prep": "npm install && bower install"
   },
-  "author": "",
-  "license": "MIT",
+  "author": "Erik Wilson",
+  "license": "Apache-2.0",
   "dependencies": {
     "debug": "^3.1.0",
     "deeplearn": "^0.3.11",

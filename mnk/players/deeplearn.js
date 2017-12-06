@@ -11,6 +11,9 @@ class DeepLearnPlayer {
     const learner = this.create()
     this.metadata = learner.metadata
     this.net = learner.net
+    Object.keys(this).forEach((key)=> {
+      Object.defineProperty(this, key, {enumerable:false})
+    })
   }
 
   create() {

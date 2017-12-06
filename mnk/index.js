@@ -1,15 +1,17 @@
-const Game = require('./tic-tac-toe/game')
-const RandomPlayer = require('./tic-tac-toe/players/random')
-const DeepLearnPlayer = require('./tic-tac-toe/players/deeplearn')
-const HumanPlayer  = require('./tic-tac-toe/players/human')
-const PerfectPlayer  = require('./tic-tac-toe/players/perfect')
+const Game = require('./game')
+const RandomPlayer = require('./players/random')
+const DeepLearnPlayer = require('./players/deeplearn')
+const HumanPlayer  = require('./players/human')
+const BrutePlayer  = require('./players/brute')
 
-require('./app')
+const m = 3
+const n = 3
+const k = 3
 
 const PlayerTypes = {
   random: new RandomPlayer(),
   human: new HumanPlayer(),
-  perfect: new PerfectPlayer(),
+  brute: new BrutePlayer({m,n,k}),
 }
 
 const dlps = new Array(2).fill(0)
@@ -17,9 +19,9 @@ for (let i in dlps) {
   dlps[i] = new DeepLearnPlayer()
   PlayerTypes[`dlp${i}`] = dlps[i]
 }
-const players = [ PlayerTypes.perfect, PlayerTypes.perfect ]
+const players = [ PlayerTypes.brute, PlayerTypes.brute ]
 
-const game = new Game({rank:3,players})
+const game = new Game({m,n,k,players})
 let stats = {}
 const play = (count=1, done=console.log) => {
   let startTime = Date.now()
@@ -34,10 +36,10 @@ const play = (count=1, done=console.log) => {
       startTime = Date.now()
       return
     }
-
+//
     game.reset()
     setTimeout(() => game.play(async (results) => {
-      let { winner, history } = results
+      let { winner } = results
       winner = winner || 'tie'
       if (!stats[winner]) stats[winner]=1
       else stats[winner]++
@@ -50,7 +52,7 @@ const play = (count=1, done=console.log) => {
 }
 //
 // (async () => {
-//   const DeepLearn = require('./tic-tac-toe/players/deeplearn')
+//   const DeepLearn = require('./mnk/players/deeplearn')
 //   const p = new DeepLearn()
 //   p.train([[0,0,0,1,0,0,0,0,0]],[[0,0,0,1,0,0,0,0,0]])
 //   const r = await p.run([0,0,0,1,0,0,0,0,0]).getValues()
@@ -58,13 +60,6 @@ const play = (count=1, done=console.log) => {
 // })()
 
 const context = { play, players, PlayerTypes }
-
-try {
-  const repl = require('repl');
-  const replContext = repl.start('> ').context
-  for (let v in context) replContext[v] = context[v]
-  return
-} catch (error) {}
 
 module.exports = context
 

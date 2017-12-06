@@ -8,11 +8,11 @@ const livereload = require('browserify-livereload')
 const watchify = require('watchify')
 const _ = require('lodash')
 
-const outfile = 'bundle.js'
+const outfile = path.join('browser', 'bundle.js')
 
 const b = browserify({
-  entries: 'play.js',
-  standalone: 'play',
+  entries: 'mnk',
+  standalone: 'mnk',
   cache: {},
   packageCache: {},
   debug: true,
