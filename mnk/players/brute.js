@@ -17,7 +17,7 @@ class BrutePlayer {
     this.k = k
     const board = new Array(m).fill(0).map(()=>new Array(n).fill(0))
     this.computeTurns(board)
-    console.log(`created ${this.turnList.length} turns in ${Date.now()-startTime} ms`)
+    // console.log(`created ${this.turnList.length} turns in ${Date.now()-startTime} ms`)
   }
 
   computeTurns( board, turn=0, pos ) {

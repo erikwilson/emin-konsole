@@ -6,13 +6,20 @@ class RandomPlayer {
   }
 
   play(input, done) {
-    const { board, m, n } = input
-    const r = {x:-1, y:-1}
-    while (!board[r.x] || board[r.x][r.y] !== 0) {
-      r.x = this.getRandomInt(0,m)
-      r.y = this.getRandomInt(0,n)
-    }
+    const { board, n } = input
+    const moves = [].concat(...board).reduce( (a,b,i) => {
+      if (b===0) a.push(i)
+      return a
+    }, [])
+    const move = moves[this.getRandomInt(0,moves.length)]
+    const r = this.posToXy(move,n)
     done(r)
+  }
+
+  posToXy(i,n) {
+    const x = Math.floor(i/n)
+    const y = i-(x*n)
+    return {x,y}
   }
 }
 

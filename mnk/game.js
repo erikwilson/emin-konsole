@@ -18,12 +18,12 @@ class Game extends EventEmitter {
     let board = this.board = []
     let m = this.m = options.m || options.rank || 3
     let n = this.n = options.n || options.rank || 3
-    let k = this.k = options.k || options.rank || 3
+    this.k = options.k || options.rank || 3
     this.players = options.players
     this.turn = 0
     this.history = []
     for (let i = 0; i<m; i++) {
-    	board.push(new Array(n).fill(0))
+      board.push(new Array(n).fill(0))
     }
   }
 
@@ -35,8 +35,13 @@ class Game extends EventEmitter {
   play(done) {
     this.gameNumber++
     if (done) this.once('finish', ({winner}={}) => {
-      const { players, history } = this
-      done({ players: players.length, winner, history })
+      const { players, history, m, n, k } = this
+      const result = { winner, history, m, n, k }
+      for (let i in players) {
+        const player = players[i]
+        if (player.learnGame) player.learnGame(result,i+1)
+      }
+      done(result)
     })
     // this.displayBoard()
     this._nextTurn()
