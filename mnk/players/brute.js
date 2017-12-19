@@ -109,6 +109,7 @@ class BrutePlayer {
     const { num, board, m, n } = input
     const boardStr = this.getBoardString(board)
     const turn = this.turns[boardStr]
+    if (!turn) console.error('boardStr',boardStr)
     const boardIndex = turn.boards.indexOf(boardStr)
     const wins = []
     const ties = []

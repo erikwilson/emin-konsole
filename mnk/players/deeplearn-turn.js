@@ -5,58 +5,63 @@ const { RandomUniformInitializer, VarianceScalingInitializer } = DeepLearn
 const { InCPUMemoryShuffledInputProviderBuilder } = DeepLearn
 const { CostReduction, SGDOptimizer, AdamOptimizer } = DeepLearn
 const { Graph, Session, NDArrayMathCPU } = DeepLearn
-const GraphSerializer = require('deeplearn-graph-serializer')
+const { jsonToGraph, graphToJson } = require('deeplearn-graph-serializer')
 
 class DeepLearnTurnPlayer {
   constructor({m,n}) {
     this.math = new NDArrayMathCPU()
     this.turns = []
-    this.inputs = {}
-    this.labels = {}
     this.metadata = {
-      learningRate: 0.1,
+      learningRate: 0.001,
     }
-    this.sampleSize = 100
     this.count = 0
-    this.create({m,n})
+    const baseNet = this.create({m,n})
+    this.baseLearn(baseNet,{m,n}).then(async ()=>{
+      // const input = [2,2,2,2,2,2,2,2,0]
+      // let result = Array.from(await this.run(baseNet,input).getValues())
+      // console.log({result})
+      const netJson = graphToJson(baseNet.graph)
+      for (let i=0; i<(m*n); i++) {
+        this.turns[i] = jsonToGraph(netJson)
+      }
+    })
     Object.keys(this).forEach((key)=> {
       Object.defineProperty(this, key, {enumerable:false})
     })
-    // console.log(this.rotateArray1DRight([1,2,3,4,5,6,0],2,3))
-    // console.log(this.invertArray1D([1,2,3,4,5,6,0],2,3))
+  }
+
+  getIterations(i) {
+    let base = [ [0], [1], [2] ]
+    if (i<=1) return base
+    let r = []
+    for (let n of this.getIterations(i-1)) {
+      base.forEach((b)=>r.push(n.concat(b)))
+    }
+    return r
+  }
+
+  async baseLearn(net,{m,n}) {
+    const boards = this.getIterations(m*n)
+    const moves  = boards.map(b=>b.map(v=>v===0?0.5:-1))
+    await this.train(net, boards, moves, 0.01, 1, 5000)
   }
 
   create({m,n}) {
-    const zeros = new ZerosInitializer()
-    const ones = new OnesInitializer()
-    const rand = new RandomUniformInitializer(0,1)
-    const scale = new VarianceScalingInitializer(.1,'fan_in','uniform')
-    const scale2 = new VarianceScalingInitializer(1,'fan_out','uniform')
-    const inSize = m*n
-    const hiddenSize = 128 //(m*n)**3
+    const inSize = m*n*2
+    const hiddenSize = inSize*2
     const outSize = m*n
-
-    for (let i=0; i<m*n; i++) {
-      this.inputs[i] = []
-      this.labels[i] = []
-
-      const graph = new Graph()
-      const input = graph.placeholder('input', [inSize])
-      const label = graph.placeholder('label', [outSize])
-
-      let fullyConnectedLayer = graph.layers.dense('layerIn', input, hiddenSize, null, true, scale, scale2)//, zeros, scale)
-      // fullyConnectedLayer = graph.layers.dense('layerHidden1', fullyConnectedLayer, hiddenSize, null, true, scale)//, zeros, scale)
-      // fullyConnectedLayer = graph.layers.dense('layerHidden2', fullyConnectedLayer, hiddenSize, null, true, scale)//, zeros, scale)
-      const output = graph.layers.dense('layerOut', fullyConnectedLayer, outSize, null, true, scale, scale2)//, zeros, scale)
-      graph.variable('output', output)
-
-      const cost = graph.meanSquaredCost(label, output)
-      graph.variable('cost', cost)
-      this.turns.push({
-        graph,
-        placeholders: { input, label },
-        variables: { cost, output },
-      })
+    const graph = new Graph()
+    const input = graph.placeholder('input', [inSize])
+    const label = graph.placeholder('label', [outSize])
+    const hidden = graph.layers.dense('layerHidden1', input, hiddenSize, null, true)
+    const output = graph.layers.dense('layerOut', hidden, outSize, null, true)
+    graph.variable('output', output)
+    const cost = graph.meanSquaredCost(label, output)
+    graph.variable('cost', cost)
+    return {
+      graph,
+      placeholders: { input, label },
+      variables: { cost, output },
     }
   }
 
@@ -66,12 +71,11 @@ class DeepLearnTurnPlayer {
 
   async train(net, inputs, labels, learningRate=this.metadata.learningRate, batchSize=1, rounds=1) {
     inputs = inputs.map((m)=>{
-      const r = new Array(m.length*2).fill(0)
-      m.forEach((p,i)=>{
-        if (p===0) return
+      return Array1D.new(m.reduce((r,p,i)=>{
+        if (p===0) return r
         r[m.length*(p-1)+i] = 1
-      })
-      return Array1D.new(r)
+        return r
+      },new Array(m.length*2).fill(0)))
     })
     labels = labels.map(m=>Array1D.new(m))
 
@@ -93,12 +97,11 @@ class DeepLearnTurnPlayer {
       {tensor: label, data: labelProvider},
     ]
 
-    for (let i=0; i<rounds; i++) {
-      math.scope(async () => {
-        session.train(cost, feedEntries, batchSize, optimizer, CostReduction.NONE)
-        // console.log({costVal})
-      })
-    }
+    await math.scope(async () => {
+      for (let i=0; i<rounds; i++) {
+        const costVal = await session.train(cost, feedEntries, batchSize, optimizer, CostReduction.MEAN).val()
+      }
+    })
   }
 
   run(net, data) {
@@ -118,139 +121,73 @@ class DeepLearnTurnPlayer {
   }
 
   async learnGame({ winner, history, m, n}) {
-    // let {inputs,labels,sampleSize} = this
-    // const input = new Array(m*n*2).fill(0)
     const board = new Array(m*n).fill(0)
     for (let i in history) {
       i = i/1
-      let shouldTrain = false
       let { player, x, y } = history[i]
       const pos = this.xyToPos(x,y,n)
-      // const id = player>1?-1:player
-      let move = await this.run(this.turns[i],board.map(v=>v===2?-1:v)).getValues().map((p,i)=>{
-        if (p<0) return Math.abs(p)
-        if (board[i]!==0) return 0
+      let move = await this.run(this.turns[i],board).getValues().map((p,i)=>{
+        if (board[i]!==0) return -1
+        if (p<0) return 0
         return p
       })
-      // const move = new Array(m*n).fill(0)
 
+      let doTraining = false
       if (winner === undefined || winner === player) {
-        // if (winner === undefined) move[pos] = 1
-        // else move[pos] = 1
-        // move[pos] = 1 - (1-move[pos])*((history.length-i-1)/history.length)
-        // move = await this.run(this.turns[i],input).getValues()
-// .map((p,i)=>{
-//           if (board[i]!==0) return 0
-//           return p
-//         })
+        // move = move.map(p=>p>0?p*.9:p)
+        // move = move.map(p=>p>0?p*0.9:p)
         move[pos] = 1
-        shouldTrain = true
+        // if (move[pos]>1) move[pos] = 1
+        // if ((history.length-i)<=7) doTraining = true
+        doTraining = true
       } else {
-        // move[pos] = 0
-        // if (i>=(history.length-4)) {
-        board.forEach((p,i) => { if (i<m*n && p===0) move[i]*=.9 })
-        // move[pos] *= (history.length-i-1)/history.length
-        move[pos] = 0
-        // move = new Array(m*n).fill(0)
-        shouldTrain = true
-        // }
+        // move = move.map(p=>p>0?p*1.1:p)
+        move[pos] /= 2
+        // if ((history.length-i)<=5) doTraining = true
+        doTraining = true
       }
-      if (i%2!==0 && shouldTrain) {
-        const boards = this.getMirrors(board.map(v=>v===2?-1:v),m,n)
-        // if (winner === undefined) console.log({board:boards[0],move})
 
-        // const mirrors = boards.reduce((r,v,i)=>{
-        //   let d = i%2 ? [n,m] : [m,n]
-        //   let s = `${v.join('')}:${d[0]},${d[1]}`
-        //   if (r[s]) return r
-        //   r[s] = {v,i,d}
-        //   return r
-        // },{})
-        // const minMirror = mirrors[Object.keys(mirrors).sort()[0]]
-
-        const moves = this.getMirrors(move,m,n)
+      if (i%2 && doTraining) {
+        const rboards = this.getMirrors(board,m,n)
+        const rmoves = this.getMirrors(move,m,n)
+        const sboards = []
+        const boards = []
+        const moves = []
+        rboards.forEach((b,i)=> {
+          const str = b.join('')
+          if (sboards.includes(str)) return
+          sboards.push(str)
+          boards.push(rboards[i])
+          moves.push(rmoves[i])
+        })
         const learningRate = this.metadata.learningRate * (i+1)/history.length
-        // if (winner===undefined) console.log(boards,moves)
-        // const boards = [Array1D.new(board)]
-        // const moves = [Array1D.new(move)]
-        // this.train(
-        //   this.turns[i],
-        //   [minMirror.v].map(m=>Array1D.new(m.map(v=>v===2?-1:v))),
-        //   [moves[minMirror.i]].map(m=>Array1D.new(m)),
-        //   learningRate
-        // )
-        this.train(
-          this.turns[i],
-          boards.map(m=>Array1D.new(m)),
-          moves.map(m=>Array1D.new(m)),
-          learningRate
-        )
+        await this.train(this.turns[i],boards,moves,learningRate,boards.length)
       }
-      // if (winner===undefined) console.log({board,move})
       board[pos] = player
-      // input[(m*n)*(player-1)+pos] = 1
-      // board[pos] = id
     }
-    // if (inputs.length > sampleSize) inputs = this.inputs = inputs.slice(-sampleSize)
-    // if (labels.length > sampleSize) labels = this.labels = labels.slice(-sampleSize)
-    // await this.train(inputs,labels,undefined,(winner===undefined?1:1))
   }
 
   async play(info, done) {
     const { m, n, board, turn } = info
-    // console.log(JSON.stringify(board,null,2))
-    // const mirrors = this.getMirrors([].concat(...board),m,n).reduce((r,v,i)=>{
-    //   let d = i%2 ? [n,m] : [m,n]
-    //   let s = `${v.join('')}:${d[0]},${d[1]}`
-    //   if (r[s]) return r
-    //   r[s] = {v,i,d}
-    //   return r
-    // },{})
-    // const minMirror = mirrors[Object.keys(mirrors).sort()[0]]
-    // const input = minMirror.v.map((v)=>v===2?-1:v)
-    // input[input.length-1] = Math.random()
-    // for (let i=0; i<m; i++) {
-    //   for (let j=0; j<n; j++) {
-    //     let player = board[i][j]
-    //     const id = player>1?-1:player
-    //     if (player===0) continue
-    //     const pos = this.xyToPos(i,j,n)
-    //     // input[(m*n)*(player-1)+pos] = 1
-    //     input[pos] = id
-    //   }
-    // }
-    const input = [].concat(...board).map(v=>v===2?-1:v)
-    let result = Array.from(await this.run(this.turns[turn],input).getValues()).map(v=>Math.abs(v))
+    const input = [].concat(...board)
+    let result = Array.from(await this.run(this.turns[turn],input).getValues())
     const oresult = Array.from(result)
-    if (this.count++ % 1000 === 0) console.log({input,oresult})
-    // if (minMirror.i !== 0) {
-    //   const results = this.getMirrors(result,minMirror.d[0],minMirror.d[1])
-    //   let newi = 0
-    //   if (minMirror.i < 4) {
-    //     newi = 4 - minMirror.i
-    //     if (newi === 4) newi = 0
-    //   } else {
-    //     newi = 4 + (8 - minMirror.i)
-    //     if (newi === 8) newi = 4
-    //   }
-    //   result = results[newi]
-    // }
 
     for (let _ in result) {
       let maxResult = Math.max.apply(null,result)
-      maxResult *= maxResult>0 ? 0.5 : 2
+      // maxResult *= maxResult>0 ? 0.75 : 1.25
 
       const allMatch = result.reduce((r,p,i) => {
-          if (p<maxResult) return r
-          // const {x,y} = this.posToXy(i,n)
-          // if (board[x][y]===0) r.push(i)
-          if (input[i]===0) r.push(i)
-          else result[i] = Number.MIN_SAFE_INTEGER
-          return r
+        if (p<maxResult) return r
+        if (input[i]===0) r.push(i)
+        else result[i] = Number.MIN_SAFE_INTEGER
+        return r
       }, [])
       // console.log(turn,allMatch.length,maxResult)
       if (allMatch.length>0) {
         const pos = allMatch[this.getRandomInt(0,allMatch.length)]
+        oresult[pos] += ' *'
+        if (this.count++ % 1000 === 0) console.log({input,oresult})
         const { x, y } = this.posToXy(pos,n)
         return done({x,y})
       }

@@ -16,7 +16,7 @@ class MNK {
       brute: new BrutePlayer({m,n,k}),
     }
 
-    const dlps = new Array(2).fill(0)
+    const dlps = new Array(1).fill(0)
     for (let i in dlps) {
       dlps[i] = new DeepLearnPlayer({m,n,k})
       PlayerTypes[`dlp${i}`] = dlps[i]
@@ -26,7 +26,7 @@ class MNK {
     this.m = 3
     this.n = 3
     this.k = 3
-    const players = this.players = [ PlayerTypes.brute, PlayerTypes.dlp1 ]
+    const players = this.players = [ PlayerTypes.brute, PlayerTypes.dlp0 ]
     this.game = new Game({m,n,k,players})
   }
 
