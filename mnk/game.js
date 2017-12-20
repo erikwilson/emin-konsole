@@ -38,6 +38,7 @@ class Game extends EventEmitter {
       const { players, history, m, n, k } = this
       const result = { winner, history, m, n, k }
       for (let i in players) {
+        i=i/1
         const player = players[i]
         if (player.learnGame) player.learnGame(result,i+1)
       }
