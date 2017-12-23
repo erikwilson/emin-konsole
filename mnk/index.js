@@ -4,6 +4,7 @@ const DerpLearnPlayer = require('./players/derp-learn')
 const DeepLearnPlayer = require('./players/deeplearn-turn')
 const HumanPlayer  = require('./players/human')
 const BrutePlayer  = require('./players/brute')
+const BruterPlayer  = require('./players/bruter')
 
 class MNK {
   constructor(options={m:3,n:3,k:3}) {
@@ -14,21 +15,22 @@ class MNK {
     const PlayerTypes = this.PlayerTypes = {
       random: new RandomPlayer(),
       human: new HumanPlayer(),
+      bruter: new BruterPlayer({m,n,k}),
       brute: new BrutePlayer({m,n,k}),
       derp: new DerpLearnPlayer({m,n,k}),
     }
 
     const dlps = new Array(1).fill(0)
-    for (let i in dlps) {
-      dlps[i] = new DeepLearnPlayer({m,n,k})
-      PlayerTypes[`dlp${i}`] = dlps[i]
-    }
+    // for (let i in dlps) {
+    //   dlps[i] = new DeepLearnPlayer({m,n,k})
+    //   PlayerTypes[`dlp${i}`] = dlps[i]
+    // }
 
     this.stats = {}
-    this.m = 3
-    this.n = 3
-    this.k = 3
-    const players = this.players = [ PlayerTypes.derp, PlayerTypes.derp ]
+    this.m = m
+    this.n = n
+    this.k = k
+    const players = this.players = [ PlayerTypes.bruter, PlayerTypes.random ]
     this.game = new Game({m,n,k,players})
   }
 
