@@ -11,13 +11,13 @@ class BrutePlayer {
   setup({ m, n, k }) {
     const startTime = Date.now()
     this.turns = {}
-    this.turnList = []
+    this.stateList = []
     this.m = m
     this.n = n
     this.k = k
     const board = new Array(m).fill(0).map(()=>new Array(n).fill(0))
     this.computeTurns(board)
-    console.error(`brute created ${this.turnList.length} turns in ${Date.now()-startTime} ms`)
+    console.error(`brute created ${this.stateList.length} turns in ${Date.now()-startTime} ms`)
   }
 
   computeTurns( board, turn=0, pos ) {
@@ -100,7 +100,7 @@ class BrutePlayer {
       }
     }
 
-    this.turnList.push(result)
+    this.stateList.push(result)
     boards.forEach((b) => this.turns[b] = result)
     return result
   }

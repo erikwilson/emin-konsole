@@ -90,29 +90,59 @@ class QLearnPlayer {
   }
 
   play(info, done) {
-    const { m, n, board, turn } = info
-    const input = [].concat(...board)
-    let result = this.moves[input.join('')]
-    const oresult = Array.from(result)
+    const { board, turn } = input
+    const key = this.getBoardKey(board)
+    const state = this.states[turn][key]
+    if (!state) console.error('key',key)
 
-    for (let _ in result) {
-      let maxResult = Math.max.apply(null,result)*0.1
-      const allMatch = result.reduce((r,p,i) => {
-        if (maxResult>0 && p<maxResult) return r
-        if (input[i]===0) r.push(i)
-        return r
-      }, [])
-      // console.log(turn,allMatch.length,maxResult)
-      if (allMatch.length>0) {
-        const pos = allMatch[this.getRandomInt(0,allMatch.length)]
-        oresult[pos] += ' *'
-        if (this.count++ % 1000 === 0) console.log({input,oresult})
-        const { x, y } = this.posToXy(pos,n)
-        return done({x,y})
+    const boards = [key]
+    const rotations = [board]
+    for (let i=1; i<4; i++) {
+      rotations[i] = this.rotateArrayRight(rotations[i-1])
+      if (rotations[i].length === board.length) {
+        boards.push(this.getBoardKey(rotations[i]))
+      } else {
+        boards.push(-1)
       }
     }
-    console.error({input,oresult,result})
-    throw new Error('unable to find a move!')
+    for (let i=4; i<8; i++) {
+      if (rotations[i-4][0].length === board.length) {
+        boards.push(this.getBoardKey(this.invertArray(rotations[i-4])))
+      } else {
+        boards.push(-1)
+      }
+    }
+
+    const selectRandom = (selection) => {
+      if (!selection.length) throw new Error('no selections?')
+      return selection[this.getRandomInt(0,selection.length)]
+    }
+
+    const maxScore = Math.max.apply(null,state.m.map(m=>m.s))
+
+    let [x, y] = selectRandom(state.m.reduce((r,move)=>{
+      if (move.s>=maxScore) r.push(move.p)
+      return r
+    },[]))
+
+    let [m, n] = []
+    let boardIndex = boards.indexOf(state.k)
+    if (boardIndex >= 4) {
+      [x, y] = [y, x]
+      boardIndex -= 4
+      m = rotations[boardIndex][0].length
+      n = rotations[boardIndex].length
+    } else {
+      m = rotations[boardIndex].length
+      n = rotations[boardIndex][0].length
+    }
+    if (boardIndex>0){
+      for (let i=0; i<(4-boardIndex); i++) {
+        [x, y] = [y, m-x-1]; [m, n] = [n, m]
+      }
+    }
+
+    return done({x,y})
   }
 
   getRandomInt(min, max) {
