@@ -3,7 +3,7 @@ const RandomPlayer = require('./players/random')
 const DerpLearnPlayer = require('./players/derp-learn')
 const DeepLearnPlayer = require('./players/deeplearn-turn')
 const HumanPlayer  = require('./players/human')
-const BrutePlayer  = require('./players/brute')
+const QLearnPlayer  = require('./players/q-learn')
 const BruterPlayer  = require('./players/bruter')
 
 class MNK {
@@ -16,8 +16,8 @@ class MNK {
       random: new RandomPlayer(),
       human: new HumanPlayer(),
       bruter: new BruterPlayer({m,n,k}),
-      brute: new BrutePlayer({m,n,k}),
       derp: new DerpLearnPlayer({m,n,k}),
+      q: new QLearnPlayer({m,n,k}),
     }
 
     const dlps = new Array(1).fill(0)
@@ -30,7 +30,7 @@ class MNK {
     this.m = m
     this.n = n
     this.k = k
-    const players = this.players = [ PlayerTypes.bruter, PlayerTypes.random ]
+    const players = this.players = [ PlayerTypes.q, PlayerTypes.random ]
     this.game = new Game({m,n,k,players})
   }
 

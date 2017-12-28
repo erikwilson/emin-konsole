@@ -1,147 +1,123 @@
 class QLearnPlayer {
   constructor({m,n}) {
-    this.metadata = {
-      learningRate: 0.001,
-    }
+    this.learningRate = 0.001
+    this.epsilon = 0.2
+    this.Qinit = 0.1
+    this.Qmin = 0.001
+    this.Qmax = 1
     this.count = 0
-    this.moves = this.baseStats({m,n})
+    this.discount = 1
+    this.states = new Array((m*n)+1).fill().map(()=>new Object())
     Object.keys(this).forEach((key)=> {
       Object.defineProperty(this, key, {enumerable:false})
     })
   }
 
-  getIterations(i) {
-    let base = [ [0], [1], [2] ]
-    if (i<=1) return base
-    let r = []
-    for (let n of this.getIterations(i-1)) {
-      base.forEach((b)=>r.push(n.concat(b)))
+  learnPlay(Q, actions, reward) {
+    Q = Q.map((r)=>r.slice())
+    let maxQ = 0
+    let l = this.learningRate
+    let d = this.discount
+    for (let i=Q.length-1; i>=0; i--) {
+      const a = actions[i]
+      const q = Q[i][a]
+      const r1 = (1-l)*q
+      const r2 = l*(reward+(d*maxQ))
+      let r = r1 + r2
+      // console.log(q,'->',r,';',r1,r2)
+      if (r<this.Qmin) r = this.Qmin
+      if (r>this.Qmax) r = this.Qmax
+      Q[i][a] = r
+      maxQ = Math.max.apply(null,Q[i])
     }
-    return r
-  }
-
-  baseStats({m,n}) {
-    return this.getIterations(m*n).reduce((r,b)=> {
-      r[b.join('')]=b.map(v=>v===0?.1:0)
-      return r
-    },{})
-  }
-
-  train(inputs, labels, learningRate=this.metadata.learningRate) {
-    for (let i in inputs) {
-      const bStr = inputs[i].join('')
-      const move = this.moves[bStr]
-      const expected = labels[i]
-      for (let j in move) {
-        if (move[j] > expected[j]) {
-          if ((move[j]-expected[j])<learningRate) move[j] = expected[j]
-          else move[j] -= learningRate
-        }
-        if (move[j] < expected[j]) {
-          if ((expected[j]-move[j])<learningRate) move[j] = expected[j]
-          else move[j] += learningRate
-        }
-      }
-      this.moves[bStr] = move
-    }
-  }
-
-  learnPlay(board, pos, player, winner, i, l, m, n, p) {
-    if (player!==p) return
-    const won = (winner === undefined || winner === undefined)
-
-    let move = this.moves[board.join('')].map((p,j)=>{
-      if (board[j]!==0) return 0
-      if (p<0.01) return 0.01
-      return p
-    })
-
-    if (winner === player) move[pos] = 1
-    else if (winner === undefined) move[pos] = 0.5
-    else move[pos] = 0.01
-
-    const rboards = this.getMirrors(board,m,n)
-    const rmoves = this.getMirrors(move,m,n)
-    const sboards = []
-    const boards = []
-    const moves = []
-    rboards.forEach((b,j)=> {
-      const str = b.join('')
-      if (sboards.includes(str)) return
-      sboards.push(str)
-      boards.push(rboards[j])
-      moves.push(rmoves[j])
-    })
-    let learningRate = this.metadata.learningRate * (i+1)/l
-    if (!won) learningRate *= 100.
-    // console.log(winner,won,player,p,learningRate)
-    this.train(boards,moves,learningRate)
+    return Q
   }
 
   learnGame({ winner, history, m, n }, p) {
-    const board = new Array(m*n).fill(0)
-    const l = history.length
+    this.count++
+    const board = new Array(m).fill(0).map(()=>new Array(n).fill(0))
+    let Q = []
+    const actions = []
+    const boards = []
+    const turns = []
     for (let i in history) {
+      let key = this.getBoardKey(board)
       let { player, x, y } = history[i]
-      const pos = this.xyToPos(x,y,n)
-      this.learnPlay(board, pos, player, winner, i, l, m, n, p)
-      board[pos] = player
+      const state = this.states[i][key]
+      if ((i%2)===(p-1)) {
+        if (!state) {
+          console.error('no state for key',key,i,board)
+          throw new Error('no state')
+        }
+        Q.push(state)
+        actions.push(this.xyToPos(x,y,n))
+        boards.push(board.map((r)=>r.slice()))
+        turns.push(i)
+      }
+      board[x][y] = player
+    }
+    let reward = -1
+    if (winner === undefined) reward = 0.5
+    if (winner === p) reward = 1
+    if (this.count%1000 === 0) console.log(Q)
+    Q = this.learnPlay(Q, actions, reward)
+    if (this.count%1000 === 0) console.log(Q)
+    if (this.count%1000 === 0) console.log({reward})
+    for (let i in Q) {
+      let b = boards[i]
+      let q = Q[i]
+      const turn = turns[i]
+      // this.states[turn][this.getBoardKey(b)] = q
+      for (let j=0; j<4; j++) {
+        if (b.length === m) {
+          this.states[turn][this.getBoardKey(b)] = q
+        }
+        if (b.length === n) {
+          let qi = this.invertArray1D(q,b.length,b[0].length)
+          this.states[turn][this.getBoardKey(this.invertArray(b))] = qi
+        }
+        // console.log(b,q)
+        q = this.rotateArray1DRight(q,b.length,b[0].length)
+        b = this.rotateArrayRight(b)
+      }
     }
   }
 
   play(info, done) {
-    const { board, turn } = input
+    const { board, turn, n } = info
     const key = this.getBoardKey(board)
-    const state = this.states[turn][key]
-    if (!state) console.error('key',key)
-
-    const boards = [key]
-    const rotations = [board]
-    for (let i=1; i<4; i++) {
-      rotations[i] = this.rotateArrayRight(rotations[i-1])
-      if (rotations[i].length === board.length) {
-        boards.push(this.getBoardKey(rotations[i]))
-      } else {
-        boards.push(-1)
-      }
-    }
-    for (let i=4; i<8; i++) {
-      if (rotations[i-4][0].length === board.length) {
-        boards.push(this.getBoardKey(this.invertArray(rotations[i-4])))
-      } else {
-        boards.push(-1)
-      }
+    // console.log({board,key})
+    let state = this.states[turn][key]
+    if (!state) {
+      state = board.reduce((result,row)=>result.concat(row.map((v)=>{
+        if (v===0) return this.Qinit
+        else return 0
+      })),[])
+      this.states[turn][key] = state
+    } else {
+      // console.log(board,state)
     }
 
     const selectRandom = (selection) => {
-      if (!selection.length) throw new Error('no selections?')
+      if (!selection.length) {
+        console.error(state,selection)
+        throw new Error('no selections?')
+      }
       return selection[this.getRandomInt(0,selection.length)]
     }
 
-    const maxScore = Math.max.apply(null,state.m.map(m=>m.s))
+    const maxScore = Math.max.apply(null,state)*(1-this.epsilon)
 
-    let [x, y] = selectRandom(state.m.reduce((r,move)=>{
-      if (move.s>=maxScore) r.push(move.p)
+    let pos = selectRandom(state.reduce((r,move,i)=>{
+      if (move>=maxScore) r.push(i)
       return r
     },[]))
 
-    let [m, n] = []
-    let boardIndex = boards.indexOf(state.k)
-    if (boardIndex >= 4) {
-      [x, y] = [y, x]
-      boardIndex -= 4
-      m = rotations[boardIndex][0].length
-      n = rotations[boardIndex].length
-    } else {
-      m = rotations[boardIndex].length
-      n = rotations[boardIndex][0].length
+    let {x,y} = this.posToXy(pos,n)
+    if (board[x][y] !== 0) {
+      console.error('invalid position!',state)
+      console.error(board,key,{x,y})
     }
-    if (boardIndex>0){
-      for (let i=0; i<(4-boardIndex); i++) {
-        [x, y] = [y, m-x-1]; [m, n] = [n, m]
-      }
-    }
-
     return done({x,y})
   }
 
@@ -151,8 +127,23 @@ class QLearnPlayer {
     return Math.floor(Math.random() * (max - min)) + min
   }
 
-  getBoardString(board) {
-    return board.map((x)=>x.join('')).join(':')
+  getBoardKey(board) {
+    // return board.map((x)=>x.join('')).join(':')
+    // const d = board.length - board[0].length
+    // const j = ( d> 0 ? new Array(d).fill(0).join('') : '')
+    const s = board.map((x)=>x.join('')).join('')
+    const r = Number.parseInt(s,3)
+    return r
+  }
+
+  posToXy(i,n) {
+    const x = Math.floor(i/n)
+    const y = i-(x*n)
+    return {x,y}
+  }
+
+  xyToPos(x,y,n) {
+    return (x*n)+y
   }
 
   invertPosition(i, m, n) {
@@ -167,16 +158,6 @@ class QLearnPlayer {
       newArray[r] = array[i]
     }
     return newArray
-  }
-
-  posToXy(i,n) {
-    const x = Math.floor(i/n)
-    const y = i-(x*n)
-    return {x,y}
-  }
-
-  xyToPos(x,y,n) {
-    return (x*n)+y
   }
 
   rotateIndexRight(i,m,n) {
@@ -195,20 +176,30 @@ class QLearnPlayer {
     return newArray
   }
 
-  getMirrors(array, M, N) {
-    const mirrors = [array.slice()]
-    let [ m, n ] = [ M, N ]
-    for (let i=1; i<4; i++) {
-      const array = this.rotateArray1DRight(mirrors[i-1],m,n)
-      mirrors.push(array)
-      if (i!==3) [ m, n ] = [ n, m ]
+  invertArray(array) {
+    const m = array.length
+    const n = array[0].length
+    let newArray = new Array(n)
+    for (let j=0; j<n; j++) {
+      newArray[j] = new Array(m)
+      for (let i=0; i<m; i++) {
+        newArray[j][i] = array[i][j]
+      }
     }
-    for (let i=0; i<4; i++) {
-      const array = this.invertArray1D(mirrors[i],m,n)
-      mirrors.push(array)
-      if (i!==3) [ m, n ] = [ n, m ]
+    return newArray
+  }
+
+  rotateArrayRight(array) {
+    const m = array.length
+    const n = array[0].length
+    let newArray = new Array(n)
+    for(let j=0; j<n; j++) {
+      newArray[j] = new Array(m)
+      for(let i=0; i<m; i++) {
+        newArray[j][m-i-1]=array[i][j]
+      }
     }
-    return mirrors
+    return newArray
   }
 
 }
