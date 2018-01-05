@@ -3,7 +3,7 @@ const RandomPlayer = require('./players/random')
 const DerpLearnPlayer = require('./players/derp-learn')
 const DeepLearnPlayer = require('./players/deeplearn-turn')
 const HumanPlayer  = require('./players/human')
-const QLearnPlayer  = require('./players/q-learn')
+const QLearnPlayer  = require('./players/double-q-learn')
 const BruterPlayer  = require('./players/bruter')
 
 class MNK {
