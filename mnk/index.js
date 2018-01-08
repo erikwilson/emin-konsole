@@ -30,7 +30,7 @@ class MNK {
     this.m = m
     this.n = n
     this.k = k
-    const players = this.players = [ PlayerTypes.q, PlayerTypes.random ]
+    const players = this.players = [ PlayerTypes.bruter, PlayerTypes.random ]
     this.game = new Game({m,n,k,players})
   }
 

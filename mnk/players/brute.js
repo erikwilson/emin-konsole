@@ -1,6 +1,6 @@
 const ScoreKeeper = require('../score-keeper')
 
-class BrutePlayer {
+class BruterPlayer {
   constructor({ m, n, k }) {
     this.setup({ m, n, k })
     Object.keys(this).forEach((key)=> {
@@ -10,124 +10,123 @@ class BrutePlayer {
 
   setup({ m, n, k }) {
     const startTime = Date.now()
-    this.turns = {}
+    this.states = new Array((m*n)+1).fill().map(()=>new Object())
     this.stateList = []
     this.m = m
     this.n = n
     this.k = k
     const board = new Array(m).fill(0).map(()=>new Array(n).fill(0))
     this.computeTurns(board)
-    console.error(`brute created ${this.stateList.length} turns in ${Date.now()-startTime} ms`)
+    console.error(`bruter created ${this.stateList.length} turns in ${Date.now()-startTime} ms`)
   }
 
   computeTurns( board, turn=0, pos ) {
     const { m, n, k } = this
-    const previousPlayer = ((turn-1) % 2) + 1
-    const nextPlayer = (turn % 2) + 1
+    const previous = ((turn-1) % 2) + 1
 
-    let { x, y } = pos >= 0 ? this.posToXy(pos,n) : {}
+    const [ x, y ] = pos || []
     if (pos !== undefined) {
       board = board.map((r,i) => x===i ? r.slice() : r )
-      board[x][y] = previousPlayer
+      board[x][y] = previous
     }
-    let boardStr = this.getBoardString(board)
-    if (this.turns[boardStr]) return this.turns[boardStr]
+    let key = this.getBoardKey(board)
+    if (this.states[turn][key]) return this.states[turn][key]
 
-    const boards = [ boardStr ]
-    const result = { wins:0, ties:0, dies:0, boards, turn, nextPlayer }
+    const result = { s:2, k:key }
+    this.stateList.push(result)
+    for (let i=0; i<4; i++) {
+      if (board.length === m) {
+        this.states[turn][this.getBoardKey(board)] = result
+      }
+      if (board.length === n) {
+        this.states[turn][this.getBoardKey(this.invertArray(board))] = result
+      }
+      board = this.rotateArrayRight(board)
+    }
+
+    let done = false
     if (pos !== undefined && Math.ceil(turn/2) >= k ) {
-      const won = ScoreKeeper.isWin(k,board,x,y,previousPlayer)
+      const won = ScoreKeeper.isWin(k,board,x,y,previous)
       if (won) {
-        result.wins = 1
-        result.winner = previousPlayer
-        delete result.nextPlayer
+        done = true
       } else if (turn === m*n) {
-        result.ties = 1
-        delete result.nextPlayer
+        result.s = 1
+        done = true
       }
     }
+    if (done) return result
 
     const openMoves = []
-    if (!result.wins && !result.ties) {
-      for (let i=0; i<m; i++) {
-        for (let j=0; j<n; j++) {
-          if (board[i][j] === 0) openMoves.push(this.xyToPos(i,j,n))
-        }
+    for (let x=0; x<m; x++) {
+      for (let y=0; y<n; y++) {
+        if (board[x][y] === 0) openMoves.push([x,y])
       }
     }
 
-    let anyWins = 0
-    let anyTies = 0
-    let anyDies = 0
-
-    const moves = result.moves = openMoves.map((pos)=> {
-      const result = { wins:0, ties:0, dies:0, pos:[pos] }
-      const next = this.computeTurns(board,turn+1,pos)
-      anyWins |= next.wins
-      anyTies |= next.ties
-      anyDies |= next.dies
-      result.wins = next.wins
-      result.ties = next.ties
-      result.dies = next.dies
-      return result
+    result.m = openMoves.map((pos)=> {
+      const next = this.computeTurns(board, turn+1, pos)
+      const thisScore = 2-next.s
+      if (thisScore<result.s) result.s = thisScore
+      return { s:next.s, p:pos }
     })
 
-    if (anyWins) result.dies = 1
-    else if (anyTies) result.ties = 1
-    else if (anyDies) result.wins = 1
-
-    {
-      const rotations = [board]
-      for (let i=1; i<4; i++) {
-        const board = this.rotateArrayRight(rotations[i-1])
-        const boardStr = this.getBoardString(board)
-        if (boards.includes(boardStr)) break
-        const m = board.length
-        const n = board[0].length
-        moves.forEach(({pos}) => pos.push(this.rotateIndexRight(pos[i-1],n,m)))
-        boards.push(boardStr)
-        rotations.push(board)
-      }
-
-      for (let i in rotations) {
-        const board = this.invertArray(rotations[i])
-        const boardStr = this.getBoardString(board)
-        if (boards.includes(boardStr)) break
-        const m = board.length
-        const n = board[0].length
-        moves.forEach(({pos}) => pos.push(this.invertPosition(pos[i],n,m)))
-        boards.push(boardStr)
-      }
-    }
-
-    this.stateList.push(result)
-    boards.forEach((b) => this.turns[b] = result)
     return result
   }
 
   play(input, done) {
-    const { num, board, m, n } = input
-    const boardStr = this.getBoardString(board)
-    const turn = this.turns[boardStr]
-    if (!turn) console.error('boardStr',boardStr)
-    const boardIndex = turn.boards.indexOf(boardStr)
-    const wins = []
-    const ties = []
+    const { board, turn } = input
+    const key = this.getBoardKey(board)
+    const state = this.states[turn][key]
+    if (!state) console.error('key',key)
 
-    const selectRandom = (moves) => {
-      const pos = moves[this.getRandomInt(0,moves.length)]
-      return this.posToXy(pos,n)
+    const boards = [key]
+    const rotations = [board]
+    for (let i=1; i<4; i++) {
+      rotations[i] = this.rotateArrayRight(rotations[i-1])
+      if (rotations[i].length === board.length) {
+        boards.push(this.getBoardKey(rotations[i]))
+      } else {
+        boards.push(-1)
+      }
+    }
+    for (let i=4; i<8; i++) {
+      if (rotations[i-4][0].length === board.length) {
+        boards.push(this.getBoardKey(this.invertArray(rotations[i-4])))
+      } else {
+        boards.push(-1)
+      }
     }
 
-    turn.moves.forEach((move)=>{
-      if (move.wins) wins.push(move.pos[boardIndex])
-      if (move.ties) ties.push(move.pos[boardIndex])
-    })
+    const selectRandom = (selection) => {
+      if (!selection.length) throw new Error('no selections?')
+      return selection[this.getRandomInt(0,selection.length)]
+    }
 
-    if (wins.length) return done(selectRandom(wins))
-    if (ties.length) return done(selectRandom(ties))
+    const maxScore = Math.max.apply(null,state.m.map(m=>m.s))
 
-    throw new Error('no win or tie options?')
+    let [x, y] = selectRandom(state.m.reduce((r,move)=>{
+      if (move.s>=maxScore) r.push(move.p)
+      return r
+    },[]))
+
+    let [m, n] = []
+    let boardIndex = boards.indexOf(state.k)
+    if (boardIndex >= 4) {
+      [x, y] = [y, x]
+      boardIndex -= 4
+      m = rotations[boardIndex][0].length
+      n = rotations[boardIndex].length
+    } else {
+      m = rotations[boardIndex].length
+      n = rotations[boardIndex][0].length
+    }
+    if (boardIndex>0){
+      for (let i=0; i<(4-boardIndex); i++) {
+        [x, y] = [y, m-x-1]; [m, n] = [n, m]
+      }
+    }
+
+    return done({x,y})
   }
 
   getRandomInt(min, max) {
@@ -136,13 +135,13 @@ class BrutePlayer {
     return Math.floor(Math.random() * (max - min)) + min
   }
 
-  getBoardString(board) {
-    return board.map((x)=>x.join('')).join(':')
-  }
-
-  invertPosition(i, m, n) {
-    const xy = this.posToXy(i,n)
-    return this.xyToPos(xy.y,xy.x,m)
+  getBoardKey(board) {
+    // return board.map((x)=>x.join('')).join(':')
+    // const d = board.length - board[0].length
+    // const j = ( d> 0 ? new Array(d).fill(0).join('') : '')
+    const s = board.map((x)=>x.join('')).join('')
+    const r = Number.parseInt(s,3)
+    return r
   }
 
   invertArray(array) {
@@ -156,23 +155,6 @@ class BrutePlayer {
       }
     }
     return newArray
-  }
-
-  posToXy(i,n) {
-    const x = Math.floor(i/n)
-    const y = i-(x*n)
-    return {x,y}
-  }
-
-  xyToPos(x,y,n) {
-    return (x*n)+y
-  }
-
-  rotateIndexRight(i,m,n) {
-    const y = Math.floor(i/n)
-    const x = i-(y*n)
-    const r = (x*m)+(m-y-1)
-    return r
   }
 
   rotateArrayRight(array) {
@@ -190,4 +172,4 @@ class BrutePlayer {
 
 }
 
-module.exports = BrutePlayer
+module.exports = BruterPlayer

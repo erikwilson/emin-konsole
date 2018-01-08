@@ -1,10 +1,19 @@
-#!/usr/bin/env node --max-old-space-size=4096
+#!/usr/bin/env node --expose-gc --max-old-space-size=4096
 const Brute = require('../mnk/players/bruter')
-const brute = new Brute({m:3,n:3,k:3})
+const brute = new Brute({m:4,n:4,k:4})
 
 console.log('[')
-const last = brute.stateList.length-1
-for (let i in brute.stateList) {
-  console.log(JSON.stringify(brute.stateList[i]) + (i<last ? ',' : ''))
+for (let i in brute.states) {
+  console.log(' {')
+  const states1Max = brute.states.length-1
+  const lastI = (i/1 === states1Max)
+  const keys = Object.keys(brute.states[i])
+  for (let j in keys) {
+    const k = keys[j]
+    const states2Max = keys.length-1
+    const lastJ = (j/1 === states2Max)
+    console.log(`  "${k}":`,JSON.stringify(brute.states[i][k]) + (lastJ ? '' : ','))
+  }
+  console.log(' }' + (lastI ? '' : ','))
 }
 console.log(']')
