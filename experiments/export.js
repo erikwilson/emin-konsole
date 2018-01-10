@@ -1,6 +1,6 @@
 #!/usr/bin/env node --expose-gc --max-old-space-size=4096
-const Brute = require('../mnk/players/bruter')
-const brute = new Brute({m:4,n:4,k:4})
+const Brute = require('../mnk/players/bruter-mongo2')
+const brute = new Brute({m:5,n:5,k:5})
 
 console.log('[')
 for (let i in brute.states) {
