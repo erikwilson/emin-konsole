@@ -1,7 +1,10 @@
 class Util {
 
   constructor() {
-    this.timeout = 0
+    this.batchIn = []
+    this.batchInResolve = {}
+    this.batchInReject = {}
+    this.batchInRemains = {}
   }
 
   getState(states, board) {
@@ -35,6 +38,48 @@ class Util {
     return {s,i,k}
   }
 
+  getStateFromCollectionBatched(collection, key) {
+    const {batchIn,batchInResolve,batchInReject,batchInRemains} = this
+    const promise = new Promise((resolve, reject) => {
+      batchIn.push(key)
+      batchInRemains[key] = () => {
+        return resolve({})
+      }
+      batchInResolve[key] = (s) => {
+        delete batchInRemains[key]
+        return resolve({s})
+      }
+      batchInReject[key] = reject
+    })
+    if (!this.batchInTimer) {
+      this.batchInTimer = setTimeout(this.purgeBatchIn.bind(this,collection),0)
+    }
+    return promise
+  }
+
+  async purgeBatchIn(collection) {
+    const {batchIn,batchInResolve,batchInReject,batchInRemains} = this
+    this.batchInTimer = undefined
+    this.batchIn = []
+    this.batchInResolve = {}
+    this.batchInReject = {}
+    this.batchInRemains = {}
+    // console.log('purgeBatchIn',batchIn.length)
+    if (!batchIn.length) return
+    let states = undefined
+    try {
+      states = await collection.find({ '_id': { '$in': batchIn } }).toArray()
+    } catch(error) {
+      for (let i in batchInReject) batchInReject[i](error)
+      return
+    }
+    for (let s of states) {
+      if (batchInResolve[s._id]) batchInResolve[s._id](s)
+      else console.error('unable to find resolve for batch in key',s._id)
+    }
+    for (let i in batchInRemains) batchInRemains[i]()
+  }
+
   getKeys(board) {
     const m = board.length
     const n = board[0].length
@@ -51,6 +96,70 @@ class Util {
       if (i !== 3) board = this.rotateArrayRight(board)
     }
     return keys
+  }
+
+  getMinPosKeyBoard(pos, board) {
+    const M = board.length
+    const N = board[0].length
+    let [m,n] = [M,N]
+    let [x,y] = pos || []
+    let r = { key: Number.MAX_SAFE_INTEGER }
+    for (let i=0; i<4; i++) {
+      if (board.length === M) {
+        const key = this.getBoardKey(board)
+        if (key<r.key) r = {pos:[x,y],key,board}
+      }
+      if (board.length === N) {
+        const boardInvert = this.invertArray(board)
+        const key = this.getBoardKey(boardInvert)
+        if (key<r.key) r = {pos:[y,x],key,board:boardInvert}
+      }
+      if (i !== 3) {
+        [x, y] = [y, m-x-1]; [m, n] = [n, m]
+        board = this.rotateArrayRight(board)
+      }
+    }
+    return r
+  }
+
+
+  getMaxPosKeyBoard(pos, board) {
+    const M = board.length
+    const N = board[0].length
+    let [m,n] = [M,N]
+    let [x,y] = pos || []
+    let r = { key: Number.MIN_SAFE_INTEGER }
+    for (let i=0; i<4; i++) {
+      if (board.length === M) {
+        const key = this.getBoardKey(board)
+        if (key>r.key) r = {pos:[x,y],key,board}
+      }
+      if (board.length === N) {
+        const boardInvert = this.invertArray(board)
+        const key = this.getBoardKey(boardInvert)
+        if (key>r.key) r = {pos:[y,x],key,board:boardInvert}
+      }
+      if (i !== 3) {
+        [x, y] = [y, m-x-1]; [m, n] = [n, m]
+        board = this.rotateArrayRight(board)
+      }
+    }
+    return r
+  }
+
+  getRotatedPos(pos, boardIndex, m, n) {
+    let [x, y] = pos
+    if (boardIndex >= 4) {
+      [x, y] = [y, x]; [m, n] = [n, m]
+      boardIndex -= 4
+    }
+
+    if (boardIndex>0){
+      for (let i=0; i<(4-boardIndex); i++) {
+        [x, y] = [y, m-x-1]; [m, n] = [n, m]
+      }
+    }
+    return [x, y]
   }
 
   getBucketState(states, board) {
@@ -131,6 +240,27 @@ class Util {
 
   xyToPos(x,y,n) {
     return (x*n)+y
+  }
+
+  getTimeStr(time) {
+    let unit = 'ms'
+    if (time>1000) {
+      unit = 's'
+      time /= 1000.0
+    }
+    if (time>60 && unit==='s') {
+      unit = 'm'
+      time /= 60.0
+    }
+    if (time>60 && unit==='m') {
+      unit = 'h'
+      time /= 60.0
+    }
+    if (time>24 && unit==='h') {
+      unit = 'd'
+      time /= 24.0
+    }
+    return `${ unit==='ms' ? time : time.toFixed(3) }${unit}`
   }
 }
 

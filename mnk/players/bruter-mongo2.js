@@ -1,7 +1,7 @@
 const MongoClient = require('mongodb').MongoClient
 const ScoreKeeper = require('../score-keeper')
 const util = new (require('../util'))()
-const Cache = require('lru-cache')
+const LruCache = require('lru-cache')
 
 class BruterPlayer {
   constructor({ m, n, k }) {
@@ -22,9 +22,17 @@ class BruterPlayer {
     this.start = this.last
     this.promises = {}
     this.asyncCount = 0
-    this.asyncMax = 1000
-    this.cache = new Cache({max:250000})
-    this.dbCache = {}
+    this.asyncMax = 5e4
+    this.dbCache = []
+    this.dbCacheFlush = []
+    this.dbFlushDelta = 0.9
+    this.dbDeleteBottom = 0.2
+    this.flushing = false
+    this.dbCount = 0
+    this.dbCountMax = 1e6
+    this.lruCache = new LruCache({max:this.asyncMax,stale:true})
+    this.dbAsk = 0
+    this.foundSolution = false
 
     const board = new Array(m).fill(0).map(()=>new Array(n).fill(0))
     const url = 'mongodb://localhost:27017'
@@ -33,62 +41,74 @@ class BruterPlayer {
     const db = client.db(dbName)
     this.collection = db.collection('brute')
     this.count = await this.collection.count()
-
-    const dbTimer = setInterval(this.flushDbCache.bind(this),1000*10)
+    try {
+      this.minKey = (await this.collection.find().sort({_id:1}).limit(1).toArray())[0]._id
+      this.maxKey = (await this.collection.find().sort({_id:-1}).limit(1).toArray())[0]._id
+    } catch(error) {}
+    console.error(`starting with ${this.count} entries, min: ${this.minKey}, max: ${this.maxKey}`)
+    // const dbTimer = setInterval(this.flushCache.bind(this),1000*60*1)
     await this.computeTurns(board)
-    clearInterval(dbTimer)
-
-    const dbCacheValues = Object.values(this.dbCache)
-    if (dbCacheValues.length) await this.collection.insertMany(dbCacheValues,{w:0})
+    // clearInterval(dbTimer)
+    await this.flushPromise
+    this.dbDeleteBottom = 0
+    this.dbFlushDelta = 0
+    await this.flushCache()
 
     this.count = await this.collection.count()
-    console.error(`bruter-mongo created ${this.count} turns in ${this.getTimeStr(Date.now()-startTime)}`)
+    console.error(`bruter-mongo created ${this.count} turns in ${util.getTimeStr(Date.now()-startTime)}`)
     client.close()
   }
 
-  promiseTurns( board, turn, pos ) {
-    const { promises, cache, dbCache } = this
-    const previous = ((turn-1) % 2) + 1
-    const [ x, y ] = pos || []
-    if (pos) {
-      board = board.map((r,i) => x===i ? r.slice() : r )
-      board[x][y] = previous
+  promiseTurns( board, turn, pos, key ) {
+    // {
+    //   const previous = ((turn-1) % 2) + 1
+    //   const [ x, y ] = aPos
+    //   aBoard = aBoard.map((r,i) => x===i ? r.slice() : r )
+    //   aBoard[x][y] = previous
+    // }
+    //
+    // const {pos,key,board} = util.getMinPosKeyBoard(aPos,aBoard)
+
+    {
+      const p = this.promises[key]
+      if (p !== undefined) return p
+    }{
+      const q = this.dbCache[key]
+      if (q !== undefined) return (async()=>q)()
+    }{
+      const q = this.dbCacheFlush[key]
+      if (q !== undefined) return (async()=>q)()
+    }{
+      const q = this.lruCache.get(key)
+      if (q !== undefined) return (async()=>q)()
     }
 
-    const keys = util.getKeys(board)
-    let key = keys[0]
-    let s = undefined
-    for (let i in keys) {
-      let k = keys[i]
-      s = dbCache[k]
-      if (s) return (async()=>s)()
-      s = cache.get(k)
-      if (s) return (async()=>s)()
-      s = promises[k]
-      if (s) return s
-    }
-
-    return promises[key] = this.computeTurns( board, turn, pos, keys ).then((s)=>{
-      cache.set(key,s)
-      promises[key] = undefined
-      return s
+    return this.promises[key] = this.computeTurns( board, turn, pos, key ).then((q)=>{
+      delete this.promises[key]
+      return q
     })
   }
 
-  async computeTurns( board, turn=0, pos, keys=[0] ) {
-    const { collection } = this
+  async computeTurns( board, turn=0, pos, key=0 ) {
+    if (this.minKey <= key && key <= this.maxKey) {
+    // {
+      this.dbAsk++
+      const {s:state} = await util.getStateFromCollectionBatched(this.collection, key)
+      if (state) {
+        this.lruCache.set(key,state.q)
+        return state.q
+      }
+    }
 
-    const {s:state, k:key} = await util.getStateFromCollection(collection, keys)
-    if (state) return state
+    let q = 2
 
     this.calls += 1
-    // if ((this.calls % 1e2) === 0) await this.flushDbCache()
+    if (this.dbCount>=this.dbCountMax) await this.flushCache()
 
     const {m, n, k} = this
     const previous = ((turn-1) % 2) + 1
     const [ x, y ] = pos || []
 
-    const result = { _id:key, s:2 }
     let done = false
 
     if (pos && Math.ceil(turn/2) >= k ) {
@@ -96,49 +116,58 @@ class BruterPlayer {
       if (won) {
         done = true
       } else if (turn === m*n) {
-        result.s = 1
+        q = 1
         done = true
       }
     }
     if (done) {
-      this.dbCache[key] = result
-      return result
+      this.dbCount++
+      this.dbCache[key] = q
+      return q
     }
 
-    const openMoves = []
-    for (let x=m-1; x>=0; x--) {
-      for (let y=n-1; y>=0; y--) {
-        if (board[x][y] === 0) openMoves.push([x,y])
+    let openMoves = []
+
+    for (let x=0; x<m; x++) {
+      for (let y=0; y<n; y++) {
+        if (board[x][y] !== 0) continue
+        const next = (turn % 2) + 1
+        const aBoard = board.map((r,i) => x===i ? r.slice() : r )
+        aBoard[x][y] = next
+        openMoves.push(util.getMinPosKeyBoard([x,y],aBoard))
       }
     }
 
-    if (openMoves.length>0) result.m = []
+    const average = openMoves.reduce((a,v)=>{
+      console.log(a,v,openMoves.length)
+      return a+v.key/openMoves.length
+    },0)
+    // solve higher numbered things first
+    openMoves = openMoves.sort((a,b)=>Math.abs(average-a.key)>Math.abs(average-b.key))
+
+    console.log(average,{openMoves})
+
     let turns = []
-    for (let pos of openMoves) {
-      let next = undefined
-      if (this.asyncCount < this.asyncMax) {
-        this.asyncCount++
-        next = this.promiseTurns(board, turn+1, pos).then((s)=>{
-          this.asyncCount--
-          return s
-        })
+    for (let move of openMoves) {
+      let nextq = this.promiseTurns(move.board, turn+1, move.pos, move.key)
+      if (this.asyncCount >= this.asyncMax) {
+        nextq = await nextq
       } else {
-        next = await this.promiseTurns(board, turn+1, pos)
+        this.asyncCount++
+        nextq = nextq.then((q)=>{
+          this.asyncCount--
+          return q
+        })
       }
-      turns.push(next)
+
+      turns.push(nextq)
     }
+
     turns = await Promise.all(turns)
-
-    for (let i in openMoves) {
-      const pos = openMoves[i]
-      const next = turns[i]
-      const thisScore = 2-next.s
-      if (thisScore<result.s) result.s = thisScore
-      result.m.push({ s:next.s, p:pos })
-    }
-
-    this.dbCache[key] = result
-    return result
+    q = turns.reduce((a,q)=>(2-q<a ? 2-q : a), q)
+    this.dbCount++
+    this.dbCache[key] = q
+    return q
   }
 
   play(input, done) {
@@ -173,41 +202,99 @@ class BruterPlayer {
     return done({x,y})
   }
 
-  getTimeStr(time) {
-    let unit = 'ms'
-    if (time>1000) {
-      unit = 's'
-      time /= 1000.0
+  flushCache() {
+    if (this.flushing) {
+      return this.flushPromise
     }
-    if (time>60 && unit==='s') {
-      unit = 'm'
-      time /= 60.0
-    }
-    if (time>60 && unit==='m') {
-      unit = 'h'
-      time /= 60.0
-    }
-    if (time>24 && unit==='h') {
-      unit = 'd'
-      time /= 24.0
-    }
-    return `${ unit==='ms' ? time : time.toFixed(3) }${unit}`
-  }
 
-  flushDbCache() {
-    const dbCacheValues = Object.values(this.dbCache).map((s)=>{
-      this.cache.set(s._id,s)
-      return s
-    })
-    this.dbCache = {}
-    this.count += dbCacheValues.length
-    const now = Date.now()
-    const stateStr = `states=${this.count} (+${dbCacheValues.length})`
-    const callStr = `calls=${this.calls}`
-    const timeStr = `+${(now-this.last)/1.e3}s total ${this.getTimeStr(now-this.start)}`
-    console.error(`computed ${stateStr} with ${callStr} in ${timeStr}`)
-    this.last = now
-    if (dbCacheValues.length) return this.collection.insertMany(dbCacheValues,{w:0})
+    if (!this.dbCount) {
+      console.error('no database items to flush!')
+      return
+    }
+
+    const flushAmount = Math.floor(this.dbCount * this.dbFlushDelta)
+    const deleteBottom = Math.floor(this.dbCount * this.dbDeleteBottom)
+    let flushCount = 0
+    let deleteCount = 0
+    this.dbCountFlush = 0
+    for (let k in this.dbCache) {
+      // if (flushCount < deleteBottom) {
+      //   deleteCount++
+      //   delete this.dbCache[k]
+      // }
+      if (flushCount++ <= flushAmount) continue
+      this.dbCountFlush++
+      this.dbCacheFlush[k] = this.dbCache[k]
+      delete this.dbCache[k]
+    }
+    this.count += this.dbCountFlush
+
+    {
+      const now = Date.now()
+      const stateStr = `states=${this.count} (+${this.dbCountFlush})`
+      const callStr = `calls=${this.calls}`
+      const asyncStr = `async=${this.asyncCount}`
+      const dbAsk = `dbAsk=${this.dbAsk}`
+      const promiseStr = `promises=${Object.keys(this.promises).length}`
+      const timeStr = `+${util.getTimeStr(now-this.last)} total ${util.getTimeStr(now-this.start)}`
+      console.error(`${stateStr}: ${callStr}, ${asyncStr}, ${promiseStr}, ${dbAsk} |${timeStr}|`)
+      this.last = now
+    }
+    console.log(`deleted ${deleteCount}`)
+    // this.dbCacheFlush = this.dbCache
+    // this.dbCountFlush = this.dbCount
+    // this.dbCache = []
+    this.dbCount -= this.dbCountFlush - deleteCount
+    this.dbAsk = 0
+    this.flushing = true
+
+    return this.flushPromise = (async () =>{
+      if (this.minKey === undefined) this.minKey = Number.MAX_SAFE_INTEGER
+      if (this.maxKey === undefined) this.maxKey = Number.MIN_SAFE_INTEGER
+      let values = Object.entries(this.dbCacheFlush).map(([k,q])=>{
+        k = Number.parseInt(k)
+        if (k < this.minKey) this.minKey = k
+        if (k > this.maxKey) this.maxKey = k
+        return {_id:k,q}
+      })
+
+      if (!values.length) return
+
+      let exitOnFinish = false
+      let catchSigint = () => {
+          console.log('Caught interrupt signal, waiting for write to finish')
+          exitOnFinish = true
+      }
+
+      process.on('SIGINT', catchSigint)
+
+      let result = await this.collection.insertMany(values,{w:0}).then((r)=> {
+        const now = Date.now()
+        console.error('`- done saving',this.dbCountFlush,`in ${util.getTimeStr(now-this.last)}`,this.minKey,this.maxKey)
+        if (!this.flushing) {
+          console.error('flushCache should be flagged flushing but isnt!')
+        }
+
+        process.removeListener('SIGINT', catchSigint)
+        if (exitOnFinish) process.exit(1)
+
+        this.dbCacheFlush = []
+        this.dbCountFlush = 0
+        this.flushing = false
+        return r
+      }).catch((error)=> {
+        console.error(error)
+        console.error('error flushing database output! reset cache')
+        this.dbCache = this.dbCache.concat(this.dbCacheFlush)
+        this.dbCount += this.dbCountFlush
+        this.count -= this.dbCountFlush
+        this.dbCacheFlush = []
+        this.dbCountFlush = 0
+        this.flushing = false
+        return error
+      })
+      return result
+    })()
   }
 }
 
