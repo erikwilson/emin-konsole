@@ -50,6 +50,15 @@
     console.error(' console.error')
     console.log('--------------')
   </script>
+
+  <script src="bundle-data.js"></script>
   <script src="bundle.js"></script>
+
+  <script>
+    if (!global.mnk) {
+      console.log('requiring global mnk')
+      global.mnk = require('../mnk');
+    }
+  </script>
 </body>
 </html>

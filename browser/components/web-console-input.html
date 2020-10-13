@@ -73,11 +73,11 @@
         if (!this.history) return
         const input = this.$.input
 
-        if (event.key === 'ArrowUp' && this.historySelect === undefined)
+        if (key === 'ArrowUp' && this.historySelect === undefined)
           this.historySelect = this.history.length
-        if (event.key === 'ArrowUp')
+        if (key === 'ArrowUp')
           this.historySelect--
-        if (event.key === 'ArrowDown' && this.historySelect !== undefined)
+        if (key === 'ArrowDown' && this.historySelect !== undefined)
           this.historySelect++
 
         if (this.historySelect < 0)
