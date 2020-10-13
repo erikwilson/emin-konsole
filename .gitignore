@@ -1,5 +1,6 @@
-bundle.js*
+bundle*.js*
 package-lock.json
 yarn.lock
 node_modules
 bower_components
+generated
