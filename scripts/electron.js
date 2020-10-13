@@ -1,13 +1,18 @@
-#!/usr/bin/env electron
+#!/usr/bin/env nodemon -e js,html --exec electron
 
 const electron = require('electron')
 // Module to control application life.
 const app = electron.app
 // Module to create native browser window.
 const BrowserWindow = electron.BrowserWindow
+BrowserWindow.HelloWorld = true
 
 const path = require('path')
 const url = require('url')
+
+process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = true;
+app.commandLine.appendArgument("--enable-features=Metal");
+app.allowRendererProcessReuse = true
 
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
@@ -15,7 +20,13 @@ let mainWindow
 
 function createWindow () {
   // Create the browser window.
-  mainWindow = new BrowserWindow({fullscreen:true})
+  mainWindow = new BrowserWindow({
+    fullscreen:true,
+    webPreferences: {
+      nodeIntegration: true
+    }
+  })
+
   // and load the index.html of the app.
   mainWindow.loadURL(url.format({
     pathname: path.join(__dirname, '..', 'browser', 'index.html'),

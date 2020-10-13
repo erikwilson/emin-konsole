@@ -1,7 +1,5 @@
-#!/usr/bin/env node
+#!/usr/bin/env nodemon -e js
 
 const mnk = require('../mnk')
-const repl = require('repl')
-
 console.log('Welcome to eMiN Konsole:')
-repl.start('> ').context.mnk = mnk
+require('repl').start('> ').context.mnk = mnk
