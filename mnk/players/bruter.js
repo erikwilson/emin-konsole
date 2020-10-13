@@ -16,17 +16,42 @@ class BruterPlayer {
     // } else {
     //   console.warn('no gc!')
     // }
+    m = parseInt(m)
+    n = parseInt(n)
+    k = parseInt(k)
+
     const startTime = Date.now()
-    this.states = new Array((m*n)+1).fill().map(()=>new Object())
+    this.generated = `generated/bruter-states-${m}-${n}-${k}.json`
+    try {
+      this.states = require(`./${this.generated}`)
+      console.info(`loaded states from ${this.generated}`)
+    } catch(e) {
+      console.warn(`generating states for m:${m} n:${n} k:${k}`)
+      this.states = new Array((m*n)+1).fill().map(()=>new Object())
+    }
     this.m = m
     this.n = n
     this.k = k
     this.count = 0
     this.last = Date.now()
     const board = new Array(m).fill(0).map(()=>new Array(n).fill(0))
+    // console.error(`ready to compute after ${Date.now()-startTime} ms`)
     this.computeTurns(board)
     const numStates = this.states.reduce((s,o)=>s+Object.keys(o).length,0)
-    console.error(`bruter created ${numStates} turns in ${Date.now()-startTime} ms`)
+    console.error(`evaluated ${numStates} turns in ${Date.now()-startTime} ms`)
+  }
+
+  writeStates() {
+    let fs = require('fs')
+    let path = require('path')
+    let stateFile = path.join(__dirname, this.generated)
+    if (fs.existsSync(stateFile)) {
+      // console.info(`state file ${this.generated} already exists`)
+      return
+    }
+    fs.mkdirSync(path.dirname(stateFile), {recursive: true})
+    console.info(`writing state file ${this.generated}`)
+    fs.writeFileSync(stateFile, JSON.stringify(this.states))
   }
 
   computeTurns( board, turn=0, pos ) {
@@ -52,7 +77,7 @@ class BruterPlayer {
     const {s:state, k:key} = util.getState(this.states[turn], board)
     if (state) return state
 
-    const result = { s:2 }
+    const result = { s:k }
     this.states[turn][key] = result
 
     if (pos !== undefined && Math.ceil(turn/2) >= k ) {
@@ -60,7 +85,7 @@ class BruterPlayer {
       if (won) {
         return result
       } else if (turn === m*n) {
-        result.s = 1
+        result.s = 0
         return result
       }
     }
@@ -70,7 +95,7 @@ class BruterPlayer {
       return a
     },[])),[]).map((pos)=> {
       const next = this.computeTurns(board, turn+1, pos)
-      const thisScore = 2-next.s
+      const thisScore = 1-next.s
       if (thisScore<result.s) result.s = thisScore
       return { s:next.s, p:pos }
     })
@@ -82,6 +107,7 @@ class BruterPlayer {
     const { board, turn } = input
     let {s:state, k:key, i:boardIndex} = util.getState(this.states[turn], board)
     if (!state) throw new Error('no state for key',key)
+    // console.log(state)
 
     const selectRandom = (selection) => {
       if (!selection.length) throw new Error('no selections?')
@@ -94,6 +120,7 @@ class BruterPlayer {
       if (move.s>=maxScore) r.push(move.p)
       return r
     },[]))
+    // console.log({x,y,boardIndex})
 
     let [m, n] = [board.length, board[0].length]
     if (boardIndex >= 4) {
@@ -106,7 +133,7 @@ class BruterPlayer {
         [x, y] = [y, m-x-1]; [m, n] = [n, m]
       }
     }
-
+    // console.log({x,y})
     return done({x,y})
   }
 

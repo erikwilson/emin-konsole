@@ -1,4 +1,3 @@
-const _ = require('lodash')
 const debug = require('debug')('score-keeper')
 
 class ScoreKeeper {

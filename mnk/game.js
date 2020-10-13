@@ -1,5 +1,4 @@
-const _ = require('lodash')
-const EventEmitter = require('EventEmitter2')
+const EventEmitter = require('eventemitter2')
 const ScoreKeeper = require('./score-keeper')
 const viewBoardText = require('./view-board-text')
 const debug = require('debug')('game')
@@ -25,6 +24,9 @@ class Game extends EventEmitter {
     for (let i = 0; i<m; i++) {
       board.push(new Array(n).fill(0))
     }
+    Object.keys(this).forEach((key)=> {
+      Object.defineProperty(this, key, {enumerable:false})
+    })
   }
 
   displayBoard() {
@@ -42,9 +44,11 @@ class Game extends EventEmitter {
         const player = players[i]
         if (player.learnGame) player.learnGame(result,i+1)
       }
+      if (this.showFinalBoard) {
+        this.displayBoard()
+      }
       done(result)
     })
-    // this.displayBoard()
     this._nextTurn()
   }
 
