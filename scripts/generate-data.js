@@ -1,11 +1,14 @@
-#!/usr/bin/env node
+#!/usr/bin/env node --experimental-json-modules
 
-const b = require('browserify')()
-const fs = require('fs')
-const path = require('path')
-const BruterPlayer = require('../mnk/players/bruter')
+import fs from 'fs'
+import path from 'path'
+import Browserify from 'browserify'
+import Yargs from 'yargs'
 
-const {argv} = require('yargs')
+import BruterPlayer from '../mnk/players/bruter.js'
+const b = Browserify()
+
+const {argv} = Yargs()
   .option('bundle', {
     type: 'boolean',
     description: 'Create bundle-data file',
@@ -40,8 +43,8 @@ argv.gen.map((sizeStr) => {
   return { m, n, k }
 }).map((size) => {
   let bruter = new BruterPlayer(size)
-  bruter.writeStates()
   b.require(`./mnk/players/${bruter.generated}`, {expose: `./${bruter.generated}`})
+  bruter.writeStates()
 })
 
 if (argv.bundle) {

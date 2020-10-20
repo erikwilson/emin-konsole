@@ -1,9 +1,10 @@
-const EventEmitter = require('eventemitter2')
-const ScoreKeeper = require('./score-keeper')
-const viewBoardText = require('./view-board-text')
-const debug = require('debug')('game')
+import EventEmitter from 'eventemitter2'
+import ScoreKeeper from './score-keeper.js'
+import viewBoardText from './view-board-text.js'
+import Debug from 'debug'
+const debug = Debug('game')
 
-class Game extends EventEmitter {
+export default class Game extends EventEmitter {
 
   constructor(options) {
     super()
@@ -103,5 +104,3 @@ class Game extends EventEmitter {
     this.emit('finish')
   }
 }
-
-module.exports = Game

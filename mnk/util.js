@@ -1,4 +1,4 @@
-class Util {
+export default class Util {
 
   constructor() {
     this.batchIn = []
@@ -263,5 +263,3 @@ class Util {
     return `${ unit==='ms' ? time : time.toFixed(3) }${unit}`
   }
 }
-
-module.exports = Util

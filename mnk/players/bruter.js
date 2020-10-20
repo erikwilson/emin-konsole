@@ -1,52 +1,58 @@
-const ScoreKeeper = require('../score-keeper')
-const util = new (require('../util'))()
+import fs from 'fs'
+import path from 'path'
+import url from 'url'
+import ScoreKeeper from '../score-keeper.js'
+import Util from '../util.js'
+const util = new Util()
+const __dirname = path.dirname(url.fileURLToPath(import.meta.url))
 
-class BruterPlayer {
+export default class BruterPlayer {
   constructor({ m, n, k }) {
-    this.setup({ m, n, k })
-    Object.keys(this).forEach((key)=> {
-      Object.defineProperty(this, key, {enumerable:false})
-    })
+    this.startTime = Date.now()
+    this.generated = `generated/bruter-states-${m}-${n}-${k}.json`
+    this.m = parseInt(m)
+    this.n = parseInt(n)
+    this.k = parseInt(k)
+    this.load()
+    this.setup()
+    const numStates = this.states.reduce((s,o)=>s+Object.keys(o).length,0)
+    console.error(`evaluated ${numStates} turns in ${Date.now()-this.startTime} ms`)
   }
 
-  setup({ m, n, k }) {
-    // if (global.gc) {
-    //   console.warn('has gc!')
-    //   global.gc()
-    // } else {
-    //   console.warn('no gc!')
-    // }
-    m = parseInt(m)
-    n = parseInt(n)
-    k = parseInt(k)
-
-    const startTime = Date.now()
-    this.generated = `generated/bruter-states-${m}-${n}-${k}.json`
+  async import() {
+    const { m, n, k } = this
     try {
-      this.states = require(`./${this.generated}`)
+      this.states = await import(`./${this.generated}`)
       console.info(`loaded states from ${this.generated}`)
     } catch(e) {
-      console.warn(`generating states for m:${m} n:${n} k:${k}`)
-      this.states = new Array((m*n)+1).fill().map(()=>new Object())
+      console.warn(e)
+    }  
+  }
+
+  load() {
+    let stateFile = path.join(__dirname, this.generated)
+    if (fs.existsSync(stateFile)) {
+      console.info(`loading ${this.generated}`)
+      this.states = JSON.parse(fs.readFileSync(stateFile))
     }
-    this.m = m
-    this.n = n
-    this.k = k
+  }
+
+  setup() {
+    if (this.states) {
+      return
+    }
+    const { m, n, k } = this
     this.count = 0
-    this.last = Date.now()
+    console.warn(`generating states for m:${m} n:${n} k:${k}`)
+    this.states = new Array((m*n)+1).fill().map(()=>new Object())  
     const board = new Array(m).fill(0).map(()=>new Array(n).fill(0))
     // console.error(`ready to compute after ${Date.now()-startTime} ms`)
     this.computeTurns(board)
-    const numStates = this.states.reduce((s,o)=>s+Object.keys(o).length,0)
-    console.error(`evaluated ${numStates} turns in ${Date.now()-startTime} ms`)
   }
 
   writeStates() {
-    let fs = require('fs')
-    let path = require('path')
     let stateFile = path.join(__dirname, this.generated)
     if (fs.existsSync(stateFile)) {
-      // console.info(`state file ${this.generated} already exists`)
       return
     }
     fs.mkdirSync(path.dirname(stateFile), {recursive: true})
@@ -138,5 +144,3 @@ class BruterPlayer {
   }
 
 }
-
-module.exports = BruterPlayer

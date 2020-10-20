@@ -1,6 +1,6 @@
-const viewBoardText = require('../view-board-text')
+import viewBoardText from '../view-board-text.js'
 
-class HumanPlayer {
+export default class HumanPlayer {
   play(input, done) {
     const { num } = input
     this.board = input.board
@@ -18,5 +18,3 @@ class HumanPlayer {
     return done({x,y})
   }
 }
-
-module.exports = HumanPlayer

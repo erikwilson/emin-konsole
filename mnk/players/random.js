@@ -1,4 +1,5 @@
-class RandomPlayer {
+
+export default class RandomPlayer {
   getRandomInt(min, max) {
     min = Math.ceil(min)
     max = Math.floor(max)
@@ -22,5 +23,3 @@ class RandomPlayer {
     return {x,y}
   }
 }
-
-module.exports = RandomPlayer

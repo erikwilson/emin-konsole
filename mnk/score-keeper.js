@@ -1,6 +1,7 @@
-const debug = require('debug')('score-keeper')
+import Debug from 'debug'
+const debug = Debug('score-keeper')
 
-class ScoreKeeper {
+export default class ScoreKeeper {
   static isWin( k, board, x, y, player ) {
     const scores = this.score( board, x, y, player )
     const maxScore = Math.max.apply( null, scores )
@@ -60,5 +61,3 @@ class ScoreKeeper {
     return score
   }
 }
-
-module.exports = ScoreKeeper

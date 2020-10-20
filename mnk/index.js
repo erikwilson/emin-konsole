@@ -1,15 +1,14 @@
-const Game = require('./game')
-const RandomPlayer = require('./players/random')
-const DerpLearnPlayer = require('./players/derp-learn')
-const DeepLearnPlayer = require('./players/deeplearn-turn')
-const HumanPlayer  = require('./players/human')
-const QLearnPlayer  = require('./players/double-q-learn')
-const BruterPlayer  = require('./players/bruter')
+import Game from './game.js'
+import HumanPlayer from './players/human.js'
+import BruterPlayer from './players/bruter.js'
+import RandomPlayer from './players/random.js'
+// import DeepLearnPlayer from './players/deeplearn-turn.js'
+// import DerpLearnPlayer from './players/derp-learn.js'
+// import QLearnPlayer from './players/double-q-learn.js'
 
-class MNK {
-  constructor(options={m:4,n:4,k:3}) {
-    this.setup(options)
-    this.play(1000)
+export default class MNK {
+  constructor(m=3,n=3,k=3) {
+    this.setup({m,n,k})
   }
 
   setup({m,n,k}) {
@@ -59,5 +58,3 @@ class MNK {
   }
 
 }
-
-module.exports = new MNK()

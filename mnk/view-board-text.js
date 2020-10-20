@@ -1,4 +1,5 @@
-module.exports = (board) => {
+
+export default function viewBoardText(board) {
   const getIndex = (i) => {
     let index = ''
     if (i<10) index += i
